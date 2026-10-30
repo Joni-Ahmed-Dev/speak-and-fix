@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Speak &amp; Fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hind+Siliguri:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --fg:#14202b; --muted:#5b6b78; --line:#d9e1e6;
+  --accent:#0b7a75; --accent-fg:#ffffff; --coach:#9a4b00; --coach-bg:#fff4e6;
+  --bad:#c0362c; --bad-bg:#fde8e5; --good:#18794e; --good-bg:#e4f5ec;
+  --me:#e3f1ef; --ai:#f1f4f6;
+  --f-display:"Bricolage Grotesque","Hind Siliguri",system-ui,sans-serif;
+  --f-body:"Hind Siliguri",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1418; --panel:#162027; --fg:#e6edf2; --muted:#93a4b1; --line:#26343d;
+    --accent:#3cc4bb; --accent-fg:#06231f; --coach:#ffb25e; --coach-bg:#2b2012;
+    --bad:#ff8a7a; --bad-bg:#3a1c19; --good:#5fd79b; --good-bg:#12301f;
+    --me:#17383a; --ai:#1d2a32; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --panel:#162027; --fg:#e6edf2; --muted:#93a4b1; --line:#26343d;
+  --accent:#3cc4bb; --accent-fg:#06231f; --coach:#ffb25e; --coach-bg:#2b2012;
+  --bad:#ff8a7a; --bad-bg:#3a1c19; --good:#5fd79b; --good-bg:#12301f;
+  --me:#17383a; --ai:#1d2a32; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  padding-block:12px}
+.app{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:12px;min-height:100%}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{font:700 22px/1.1 var(--f-display);margin:0;letter-spacing:-.01em}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select,input{font:inherit;color:inherit}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details.settings{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+details.settings summary{cursor:pointer;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 14px;margin-top:12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+label.f input,label.f select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--fg);min-width:0;width:100%}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:0}
+@media (max-width:760px){.panels{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0;min-height:340px;max-height:calc(100vh - 150px)}
+@media (max-width:760px){.panel{max-height:none;min-height:300px}}
+.ph{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ph h2{font:600 16px/1.2 var(--f-display);margin:0}
+.ph small{color:var(--muted)}
+.feed{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.empty{color:var(--muted);margin:auto;text-align:center;max-width:30ch}
+.msg{max-width:88%;padding:8px 12px;border-radius:12px;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;background:var(--me);border-bottom-right-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--ai);border-bottom-left-radius:4px}
+.msg .who{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.msg.live{opacity:.75}
+.ctl{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
+.mic{border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:11px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.mic[aria-pressed="true"]{background:var(--bad);color:#fff}
+.dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9}
+.mic[aria-pressed="true"] .dot{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.5);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.mic[aria-pressed="true"] .dot{animation:none}}
+.status{font-size:13px;color:var(--muted);flex:1;min-width:140px}
+.status.err{color:var(--bad)}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.card .orig{overflow-wrap:anywhere}
+mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;font-weight:600}
+.fix{background:var(--good-bg);color:var(--good);border-radius:8px;padding:6px 10px;font-weight:500;overflow-wrap:anywhere}
+.why{color:var(--fg)}
+.nat{color:var(--coach);background:var(--coach-bg);border-radius:8px;padding:6px 10px;font-size:14px;overflow-wrap:anywhere}
+.perfect{color:var(--good);font-weight:600}
+.pending{color:var(--muted);font-style:italic}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.notice{background:var(--coach-bg);color:var(--coach);border-radius:8px;padding:8px 12px;font-size:13.5px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="t-title">Speak &amp; Fix</h1>
+    <div class="bar">
+      <button class="btn" id="langBtn" type="button">English</button>
+      <button class="btn" id="themeBtn" type="button">◐</button>
+    </div>
+  </header>
+
+  <details class="settings" id="settings" open>
+    <summary id="t-settings">Settings</summary>
+    <div class="grid">
+      <label class="f" for="apiKey"><span id="t-key">Gemini API key</span>
+        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza...">
+      </label>
+      <label class="f" for="modelKind"><span id="t-voicemodel">Voice model</span>
+        <select id="modelKind">
+          <option value="standard" id="o-std">Standard Live (longer sessions)</option>
+          <option value="native" id="o-nat">Native audio (most natural)</option>
+        </select>
+      </label>
+      <label class="f" for="voice"><span id="t-voice">Voice</span>
+        <select id="voice">
+          <option>Puck</option><option>Zephyr</option><option>Kore</option><option>Charon</option>
+          <option>Aoede</option><option>Fenrir</option><option>Leda</option><option>Orus</option>
+        </select>
+      </label>
+      <label class="f" for="level"><span id="t-level">Level</span>
+        <select id="level">
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate" selected>Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
+      </label>
+      <label class="f" for="topic"><span id="t-topic">Topic</span>
+        <select id="topic">
+          <option value="everyday conversation">Everyday</option>
+          <option value="a job interview">Job interview</option>
+          <option value="travel">Travel</option>
+          <option value="studies and university life">Studies</option>
+          <option value="free choice">Free choice</option>
+        </select>
+      </label>
+      <label class="f" for="fallback"><span id="t-fallback">If native audio runs out</span>
+        <select id="fallback">
+          <option value="1" id="o-fb1">Switch to standard</option>
+          <option value="0" id="o-fb0">Stop and tell me</option>
+        </select>
+      </label>
+    </div>
+    <details style="margin-top:12px">
+      <summary id="t-adv">Model names (change if Google renames them)</summary>
+      <div class="grid">
+        <label class="f" for="mStd"><span>Standard Live</span><input id="mStd" spellcheck="false"></label>
+        <label class="f" for="mNat"><span>Native audio</span><input id="mNat" spellcheck="false"></label>
+        <label class="f" for="mGram"><span>Grammar coach</span><input id="mGram" spellcheck="false"></label>
+      </div>
+    </details>
+    <p class="hint" id="t-hint">Your key is stored only in this browser. Use headphones so the mic does not hear the voice.</p>
+  </details>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="panels">
+    <section class="panel" aria-labelledby="h-conv">
+      <div class="ph"><h2 id="h-conv">Conversation</h2><small id="timer">00:00</small></div>
+      <div class="feed" id="convFeed" aria-live="polite"><p class="empty" id="convEmpty">Press the mic and start talking.</p></div>
+      <div class="ctl">
+        <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
+        <span class="status" id="status"></span>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-coach">
+      <div class="ph"><h2 id="h-coach">Grammar coach</h2><small id="t-listening">Listening quietly</small></div>
+      <div class="feed" id="coachFeed" aria-live="polite"><p class="empty" id="coachEmpty">Each sentence you say is checked here.</p></div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- strings ---------- */
+const I18N = {
+  bn: {
+    title:"Speak & Fix", settings:"সেটিংস", key:"Gemini API key", voicemodel:"ভয়েস মডেল", voice:"ভয়েস",
+    level:"লেভেল", topic:"বিষয়", fallback:"নেটিভ অডিওর লিমিট শেষ হলে", adv:"মডেলের নাম (Google বদলালে এখানে ঠিক করুন)",
+    hint:"আপনার key শুধু এই ব্রাউজারে থাকে। হেডফোন ব্যবহার করুন, নইলে মাইক Gemini-র কথাও শুনে ফেলবে।",
+    std:"স্ট্যান্ডার্ড Live (বেশি সময় চলে)", nat:"নেটিভ অডিও (সবচেয়ে স্বাভাবিক)", fb1:"স্ট্যান্ডার্ডে চলে যাও", fb0:"থামো এবং জানাও",
+    conv:"কথোপকথন", coach:"গ্রামার কোচ", listening:"চুপচাপ শুনছে",
+    convEmpty:"মাইক চাপুন আর ইংরেজিতে কথা বলা শুরু করুন।", coachEmpty:"আপনার প্রতিটি বাক্য এখানে পরীক্ষা হবে।",
+    start:"কথা শুরু", stop:"থামান", connecting:"সংযোগ হচ্ছে…", live:"শুনছি। কথা বলুন।",
+    you:"আপনি", gemini:"Gemini", perfect:"👍 একদম ঠিক আছে!", fixed:"ঠিক বাক্য", natural:"আরও স্বাভাবিক", checking:"পরীক্ষা হচ্ছে…",
+    nokey:"আগে সেটিংসে Gemini API key দিন।", nomic:"মাইক ব্যবহারের অনুমতি পাওয়া যায়নি।", reconnecting:"আবার সংযোগ হচ্ছে…",
+    fellback:"নেটিভ অডিও চলছে না। স্ট্যান্ডার্ড মডেলে চলে গেছি।", failed:"সংযোগ ব্যর্থ", gramfail:"গ্রামার পরীক্ষা হয়নি",
+    langBtn:"English"
+  },
+  en: {
+    title:"Speak & Fix", settings:"Settings", key:"Gemini API key", voicemodel:"Voice model", voice:"Voice",
+    level:"Level", topic:"Topic", fallback:"If native audio runs out", adv:"Model names (change if Google renames them)",
+    hint:"Your key is stored only in this browser. Use headphones so the mic does not hear the voice.",
+    std:"Standard Live (longer sessions)", nat:"Native audio (most natural)", fb1:"Switch to standard", fb0:"Stop and tell me",
+    conv:"Conversation", coach:"Grammar coach", listening:"Listening quietly",
+    convEmpty:"Press the mic and start talking.", coachEmpty:"Each sentence you say is checked here.",
+    start:"Start talking", stop:"Stop", connecting:"Connecting…", live:"Listening. Go ahead.",
+    you:"You", gemini:"Gemini", perfect:"👍 Perfect!", fixed:"Corrected", natural:"More natural", checking:"Checking…",
+    nokey:"Add your Gemini API key in Settings first.", nomic:"Microphone permission was denied.", reconnecting:"Reconnecting…",
+    fellback:"Native audio is not available right now. Switched to the standard model.", failed:"Connection failed", gramfail:"Grammar check failed",
+    langBtn:"বাংলা"
+  }
+};
+
+/* ---------- settings ---------- */
+const $ = id => document.getElementById(id);
+const DEFAULTS = {
+  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1",
+  mStd:"gemini-3.8-live", mNat:"gemini-3.1-flash-live-preview", mGram:"gemini-2.5-flash",
+  ui:"bn", theme:""
+};
+let cfg = Object.assign({}, DEFAULTS);
+try { Object.assign(cfg, JSON.parse(localStorage.getItem("speakfix") || "{}")); } catch(e){}
+/* replace model names saved by an older version of this page */
+if (cfg.mStd === "gemini-live-2.5-flash-preview") cfg.mStd = DEFAULTS.mStd;
+if (cfg.mNat === "gemini-2.5-flash-native-audio-preview-09-2025") cfg.mNat = DEFAULTS.mNat;
+function saveCfg(){ try { localStorage.setItem("speakfix", JSON.stringify(cfg)); } catch(e){} }
+
+const fields = ["apiKey","modelKind","voice","level","topic","fallback","mStd","mNat","mGram"];
+fields.forEach(k => {
+  const el = $(k); el.value = cfg[k];
+  el.addEventListener("change", () => { cfg[k] = el.value.trim(); saveCfg(); });
+  el.addEventListener("input", () => { cfg[k] = el.value.trim(); saveCfg(); });
+});
+
+function t(k){ return I18N[cfg.ui][k]; }
+function applyLang(){
+  document.documentElement.lang = cfg.ui;
+  const map = {"t-title":"title","t-settings":"settings","t-key":"key","t-voicemodel":"voicemodel","t-voice":"voice","t-level":"level",
+    "t-topic":"topic","t-fallback":"fallback","t-adv":"adv","t-hint":"hint","o-std":"std","o-nat":"nat","o-fb1":"fb1","o-fb0":"fb0",
+    "h-conv":"conv","h-coach":"coach","t-listening":"listening","convEmpty":"convEmpty","coachEmpty":"coachEmpty","langBtn":"langBtn"};
+  for (const id in map){ const el=$(id); if(el) el.textContent = t(map[id]); }
+  setMicLabel();
+}
+$("langBtn").addEventListener("click", () => { cfg.ui = cfg.ui === "bn" ? "en" : "bn"; saveCfg(); applyLang(); });
+$("themeBtn").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+  cfg.theme = dark ? "light" : "dark"; saveCfg(); document.documentElement.dataset.theme = cfg.theme;
+});
+if (cfg.theme) document.documentElement.dataset.theme = cfg.theme;
+
+/* ---------- helpers ---------- */
+function esc(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function setStatus(msg, isErr){ const s=$("status"); s.textContent = msg || ""; s.classList.toggle("err", !!isErr); }
+function showNotice(msg){ const n=$("notice"); n.textContent=msg; n.hidden=!msg; }
+function b64FromBytes(bytes){
+  let bin = ""; const CH = 0x8000;
+  for (let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
+  return btoa(bin);
+}
+function bytesFromB64(b64){
+  const bin = atob(b64); const out = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/* ---------- transcript UI ---------- */
+let curMe = null, curAi = null, meText = "", aiText = "";
+function addBubble(kind){
+  $("convEmpty") && $("convEmpty").remove();
+  const d = document.createElement("div");
+  d.className = "msg " + kind + " live";
+  d.innerHTML = '<span class="who"></span><span class="txt"></span>';
+  d.querySelector(".who").textContent = kind === "me" ? t("you") : t("gemini");
+  $("convFeed").appendChild(d); scrollDown($("convFeed"));
+  return d;
+}
+function scrollDown(el){ el.scrollTop = el.scrollHeight; }
+function appendMe(text){
+  if (!curMe) { curMe = addBubble("me"); meText = ""; }
+  meText += text; curMe.querySelector(".txt").textContent = meText; scrollDown($("convFeed"));
+}
+function appendAi(text){
+  flushUser();
+  if (!curAi) { curAi = addBubble("ai"); aiText = ""; }
+  aiText += text; curAi.querySelector(".txt").textContent = aiText; scrollDown($("convFeed"));
+}
+function flushUser(){
+  if (!curMe) return;
+  curMe.classList.remove("live");
+  const sentence = meText.trim();
+  curMe = null; meText = "";
+  if (sentence) checkGrammar(sentence);
+}
+function endTurn(){
+  flushUser();
+  if (curAi) { curAi.classList.remove("live"); curAi = null; aiText = ""; }
+}
+
+/* ---------- grammar coach (REST) ---------- */
+const GRAMMAR_SCHEMA = {
+  type:"OBJECT",
+  properties:{
+    correct:{type:"BOOLEAN"},
+    corrected:{type:"STRING"},
+    mistakes:{type:"ARRAY", items:{type:"OBJECT", properties:{wrong:{type:"STRING"}, right:{type:"STRING"}}, required:["wrong","right"]}},
+    explanation_bn:{type:"STRING"},
+    natural:{type:"STRING"}
+  },
+  required:["correct","corrected","mistakes","explanation_bn","natural"]
+};
+function grammarPrompt(){
+  return "You are a kind English grammar coach for a Bengali-speaking learner (level: " + cfg.level + "). " +
+    "The input is one spoken sentence that was transcribed automatically, so ignore punctuation, capital letters and likely transcription slips. " +
+    "Judge only grammar, word choice and how natural it sounds. " +
+    "Return JSON. 'correct' is true only if the sentence needs no change. 'corrected' is the fixed sentence (same as input if correct). " +
+    "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix. " +
+    "'explanation_bn' is a short explanation in Bengali, at most two sentences, naming the rule in simple words (keep English grammar terms in English). Empty string if correct. " +
+    "'natural' is one more native-sounding way to say it, or an empty string if the sentence is already natural. " +
+    "If the learner spoke Bengali instead of English, set correct to false, put the English translation in 'corrected', and explain in Bengali.";
+}
+function highlight(text, mistakes){
+  const lower = text.toLowerCase(); const ranges = [];
+  (mistakes || []).forEach(m => {
+    const w = (m.wrong || "").trim().toLowerCase(); if (!w) return;
+    const i = lower.indexOf(w); if (i >= 0) ranges.push([i, i + w.length]);
+  });
+  ranges.sort((a,b) => a[0]-b[0]);
+  const merged = [];
+  ranges.forEach(r => { const l = merged[merged.length-1]; if (l && r[0] <= l[1]) l[1] = Math.max(l[1], r[1]); else merged.push(r.slice()); });
+  let out = "", pos = 0;
+  merged.forEach(([a,b]) => { out += esc(text.slice(pos,a)) + "<mark>" + esc(text.slice(a,b)) + "</mark>"; pos = b; });
+  return out + esc(text.slice(pos));
+}
+async function checkGrammar(sentence){
+  $("coachEmpty") && $("coachEmpty").remove();
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = '<span class="tag">' + esc(t("you")) + '</span><div class="orig">' + esc(sentence) + '</div><div class="pending">' + esc(t("checking")) + '</div>';
+  $("coachFeed").appendChild(card); scrollDown($("coachFeed"));
+  try {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(cfg.mGram) + ":generateContent";
+    const res = await fetch(url, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey},
+      body: JSON.stringify({
+        systemInstruction:{parts:[{text:grammarPrompt()}]},
+        contents:[{role:"user", parts:[{text:sentence}]}],
+        generationConfig:{responseMimeType:"application/json", responseSchema:GRAMMAR_SCHEMA, temperature:0.2}
+      })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const raw = data.candidates && data.candidates[0] && data.candidates[0].content.parts.map(p => p.text || "").join("");
+    const r = JSON.parse(raw);
+    let html = '<span class="tag">' + esc(t("you")) + '</span>';
+    if (r.correct) {
+      html += '<div class="orig">' + esc(sentence) + '</div><div class="perfect">' + esc(t("perfect")) + '</div>';
+    } else {
+      html += '<div class="orig">' + highlight(sentence, r.mistakes) + '</div>' +
+        '<span class="tag">' + esc(t("fixed")) + '</span><div class="fix">✅ ' + esc(r.corrected) + '</div>' +
+        (r.explanation_bn ? '<div class="why">' + esc(r.explanation_bn) + '</div>' : '');
+    }
+    if (r.natural && r.natural.trim().toLowerCase() !== (r.corrected || sentence).trim().toLowerCase())
+      html += '<span class="tag">' + esc(t("natural")) + '</span><div class="nat">' + esc(r.natural) + '</div>';
+    card.innerHTML = html;
+  } catch (err) {
+    const p = card.querySelector(".pending");
+    if (p) { p.className = "status err"; p.textContent = t("gramfail") + " (" + err.message + ")"; }
+  }
+  scrollDown($("coachFeed"));
+}
+
+/* ---------- audio: mic capture ---------- */
+const WORKLET = "class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('cap',P);";
+let micCtx = null, micStream = null, micNode = null, micSrc = null, muteGain = null;
+let pending = [], pendingLen = 0, resampleCarry = [];
+
+function floatToPcm16(f){
+  const o = new Int16Array(f.length);
+  for (let i=0;i<f.length;i++){ const s = Math.max(-1, Math.min(1, f[i])); o[i] = s < 0 ? s * 0x8000 : s * 0x7fff; }
+  return o;
+}
+function downsample(f, from, to){
+  if (from === to) return f;
+  const ratio = from / to, n = Math.floor(f.length / ratio), out = new Float32Array(n);
+  for (let i=0;i<n;i++){
+    const a = Math.floor(i*ratio), b = Math.min(f.length, Math.floor((i+1)*ratio));
+    let sum = 0; for (let j=a;j<b;j++) sum += f[j];
+    out[i] = sum / Math.max(1, b - a);
+  }
+  return out;
+}
+async function startMic(){
+  micStream = await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+  try { micCtx = new AudioContext({sampleRate:16000}); } catch(e){ micCtx = new AudioContext(); }
+  const blobUrl = URL.createObjectURL(new Blob([WORKLET], {type:"application/javascript"}));
+  await micCtx.audioWorklet.addModule(blobUrl);
+  micSrc = micCtx.createMediaStreamSource(micStream);
+  micNode = new AudioWorkletNode(micCtx, "cap");
+  muteGain = micCtx.createGain(); muteGain.gain.value = 0;
+  micSrc.connect(micNode); micNode.connect(muteGain); muteGain.connect(micCtx.destination);
+  micNode.port.onmessage = e => {
+    if (!ws || ws.readyState !== 1 || !setupDone) return;
+    const f = downsample(e.data, micCtx.sampleRate, 16000);
+    pending.push(f); pendingLen += f.length;
+    if (pendingLen >= 1600) {
+      const all = new Float32Array(pendingLen); let o = 0;
+      pending.forEach(p => { all.set(p, o); o += p.length; });
+      pending = []; pendingLen = 0;
+      ws.send(JSON.stringify({realtimeInput:{audio:{data:b64FromBytes(new Uint8Array(floatToPcm16(all).buffer)), mimeType:"audio/pcm;rate=16000"}}}));
+    }
+  };
+}
+function stopMic(){
+  try { micNode && micNode.disconnect(); micSrc && micSrc.disconnect(); } catch(e){}
+  micStream && micStream.getTracks().forEach(tr => tr.stop());
+  micCtx && micCtx.close().catch(()=>{});
+  micCtx = micStream = micNode = micSrc = null; pending = []; pendingLen = 0;
+}
+
+/* ---------- audio: playback ---------- */
+let outCtx = null, nextTime = 0, playing = [];
+function playPcm(b64){
+  if (!outCtx) { outCtx = new AudioContext({sampleRate:24000}); nextTime = 0; }
+  if (outCtx.state === "suspended") outCtx.resume();
+  const bytes = bytesFromB64(b64);
+  const i16 = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+  const f = new Float32Array(i16.length);
+  for (let i=0;i<i16.length;i++) f[i] = i16[i] / 0x8000;
+  const buf = outCtx.createBuffer(1, f.length, 24000); buf.copyToChannel(f, 0);
+  const src = outCtx.createBufferSource(); src.buffer = buf; src.connect(outCtx.destination);
+  nextTime = Math.max(nextTime, outCtx.currentTime + 0.02);
+  src.start(nextTime); nextTime += buf.duration;
+  playing.push(src); src.onended = () => { playing = playing.filter(s => s !== src); };
+}
+function stopPlayback(){
+  playing.forEach(s => { try { s.stop(); } catch(e){} }); playing = []; nextTime = 0;
+}
+
+/* ---------- Gemini Live socket ---------- */
+let ws = null, active = false, setupDone = false, resumeHandle = null, retries = 0, usingKind = "standard";
+let startedAt = 0, timerId = null;
+
+function convPrompt(){
+  return "You are a friendly English conversation partner for a Bengali-speaking learner. Learner level: " + cfg.level + ". Topic: " + cfg.topic + ". " +
+    "Always reply in English, in one to three short sentences, then ask one easy follow-up question to keep the learner talking. " +
+    "Match your vocabulary and speed to the level. Do not correct grammar; a separate coach does that. " +
+    "If the learner speaks Bengali, answer briefly in English and gently invite them to try again in English.";
+}
+function modelName(kind){ return kind === "native" ? cfg.mNat : cfg.mStd; }
+
+function openSocket(){
+  setupDone = false;
+  const url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=" + encodeURIComponent(cfg.apiKey);
+  ws = new WebSocket(url);
+  const mine = ws;
+  mine.onopen = () => {
+    const speech = {voiceConfig:{prebuiltVoiceConfig:{voiceName:cfg.voice}}};
+    const setup = {
+      model:"models/" + modelName(usingKind),
+      generationConfig:{responseModalities:["AUDIO"], speechConfig:speech},
+      systemInstruction:{parts:[{text:convPrompt()}]},
+      inputAudioTranscription:{},
+      outputAudioTranscription:{},
+      contextWindowCompression:{slidingWindow:{}},
+      sessionResumption: resumeHandle ? {handle:resumeHandle} : {}
+    };
+    mine.send(JSON.stringify({setup}));
+  };
+  mine.onmessage = async ev => {
+    let text = ev.data; if (text instanceof Blob) text = await text.text();
+    let msg; try { msg = JSON.parse(text); } catch(e){ return; }
+    handleMsg(msg);
+  };
+  mine.onerror = () => {};
+  mine.onclose = ev => { if (mine === ws) onSocketClosed(ev); };
+}
+
+function handleMsg(msg){
+  if (msg.setupComplete !== undefined) {
+    setupDone = true; retries = 0; setStatus(t("live"));
+    return;
+  }
+  if (msg.sessionResumptionUpdate && msg.sessionResumptionUpdate.newHandle) resumeHandle = msg.sessionResumptionUpdate.newHandle;
+  if (msg.goAway) { try { ws.close(); } catch(e){} return; }
+  const sc = msg.serverContent; if (!sc) return;
+  if (sc.interrupted) { stopPlayback(); endTurn(); }
+  if (sc.inputTranscription && sc.inputTranscription.text) appendMe(sc.inputTranscription.text);
+  if (sc.modelTurn && sc.modelTurn.parts) {
+    flushUser();
+    sc.modelTurn.parts.forEach(p => { if (p.inlineData && p.inlineData.data) playPcm(p.inlineData.data); });
+  }
+  if (sc.outputTranscription && sc.outputTranscription.text) appendAi(sc.outputTranscription.text);
+  if (sc.turnComplete) endTurn();
+}
+
+function onSocketClosed(ev){
+  if (!active) return;
+  const reason = (ev.reason || "").toString();
+  const quota = /quota|exhaust|limit|429|rate/i.test(reason);
+  if (usingKind === "native" && cfg.fallback === "1" && (!setupDone || quota)) {
+    usingKind = "standard"; resumeHandle = null;
+    showNotice(t("fellback")); setStatus(t("connecting")); openSocket(); return;
+  }
+  if (!setupDone && !resumeHandle) {
+    stopSession(); setStatus(t("failed") + (reason ? ": " + reason : " (code " + ev.code + ")"), true); return;
+  }
+  if (retries < 5) {
+    retries++; setStatus(t("reconnecting")); setTimeout(() => { if (active) openSocket(); }, 600 * retries);
+  } else {
+    stopSession(); setStatus(t("failed") + (reason ? ": " + reason : ""), true);
+  }
+}
+
+/* ---------- session control ---------- */
+function setMicLabel(){ $("micLabel").textContent = active ? t("stop") : t("start"); }
+function tick(){
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  $("timer").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
+}
+async function startSession(){
+  if (!cfg.apiKey) { setStatus(t("nokey"), true); $("settings").open = true; $("apiKey").focus(); return; }
+  showNotice(""); setStatus(t("connecting"));
+  try { await startMic(); } catch(e){ setStatus(t("nomic"), true); return; }
+  active = true; usingKind = cfg.modelKind; resumeHandle = null; retries = 0;
+  $("micBtn").setAttribute("aria-pressed", "true"); setMicLabel();
+  startedAt = Date.now(); tick(); timerId = setInterval(tick, 1000);
+  $("settings").open = false;
+  openSocket();
+}
+function stopSession(){
+  active = false; setupDone = false;
+  try { ws && ws.close(); } catch(e){}
+  ws = null; stopMic(); stopPlayback(); endTurn();
+  clearInterval(timerId);
+  $("micBtn").setAttribute("aria-pressed", "false"); setMicLabel();
+}
+$("micBtn").addEventListener("click", () => { active ? (stopSession(), setStatus("")) : startSession(); });
+
+applyLang();
+</script>
+</body>
+</html>
