@@ -42,7 +42,9 @@ h1{font:700 22px/1.1 var(--f-display);margin:0;letter-spacing:-.01em}
 button,select,input{font:inherit;color:inherit}
 .btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
-.btn:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.tab[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,.mic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 details.settings{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 details.settings summary{cursor:pointer;font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 14px;margin-top:12px}
@@ -73,7 +75,7 @@ label.f input,label.f select{background:var(--bg);border:1px solid var(--line);b
 @media (prefers-reduced-motion:reduce){.mic[aria-pressed="true"] .dot{animation:none}}
 .status{font-size:13px;color:var(--muted);flex:1;min-width:140px}
 .status.err{color:var(--bad)}
-.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--panel)}
 .card .orig{overflow-wrap:anywhere}
 mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;font-weight:600}
 .fix{background:var(--good-bg);color:var(--good);border-radius:8px;padding:6px 10px;font-weight:500;overflow-wrap:anywhere}
@@ -82,7 +84,34 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
 .perfect{color:var(--good);font-weight:600}
 .pending{color:var(--muted);font-style:italic}
 .tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--muted)}
+.chip.bad{color:var(--bad);border-color:var(--bad)}
 .notice{background:var(--coach-bg);color:var(--coach);border-radius:8px;padding:8px 12px;font-size:13.5px}
+.report{border:1px solid var(--accent);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--panel)}
+.report h4,.prog h3{font:600 15px/1.3 var(--f-display);margin:0}
+.bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
+.band{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:2px}
+.band b{font:700 22px/1 var(--f-display)}
+.band span{font-size:12px;color:var(--muted)}
+.band.main{border-color:var(--accent)}
+.report ul,.prog ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:3px}
+.prog{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:18px}
+.prog section{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.bars{display:flex;flex-direction:column;gap:6px}
+.brow{display:grid;grid-template-columns:minmax(110px,170px) 1fr 34px;gap:8px;align-items:center;font-size:14px}
+.btrack{height:10px;background:var(--bg);border-radius:6px;overflow:hidden}
+.bfill{height:100%;background:var(--bad);border-radius:6px}
+.bfill.ok{background:var(--accent)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.rec{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;overflow-wrap:anywhere}
+.rec s{color:var(--bad)} .rec em{color:var(--good);font-style:normal;font-weight:500}
+.sess{border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.sess summary{cursor:pointer;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.sess .body{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.plan{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border-radius:8px;padding:10px 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -91,80 +120,108 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
   <header>
     <h1 id="t-title">Speak &amp; Fix</h1>
     <div class="bar">
+      <button class="btn tab" id="tabPractice" type="button" aria-pressed="true" data-bn="অনুশীলন" data-en="Practice">Practice</button>
+      <button class="btn tab" id="tabProgress" type="button" aria-pressed="false" data-bn="অগ্রগতি" data-en="Progress">Progress</button>
       <button class="btn" id="langBtn" type="button">English</button>
-      <button class="btn" id="themeBtn" type="button">◐</button>
+      <button class="btn" id="themeBtn" type="button" aria-label="Theme">◐</button>
     </div>
   </header>
 
-  <details class="settings" id="settings" open>
-    <summary id="t-settings">Settings</summary>
-    <div class="grid">
-      <label class="f" for="apiKey"><span id="t-key">Gemini API key</span>
-        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza...">
-      </label>
-      <label class="f" for="modelKind"><span id="t-voicemodel">Voice model</span>
-        <select id="modelKind">
-          <option value="standard" id="o-std">Standard Live (longer sessions)</option>
-          <option value="native" id="o-nat">Native audio (most natural)</option>
-        </select>
-      </label>
-      <label class="f" for="voice"><span id="t-voice">Voice</span>
-        <select id="voice">
-          <option>Puck</option><option>Zephyr</option><option>Kore</option><option>Charon</option>
-          <option>Aoede</option><option>Fenrir</option><option>Leda</option><option>Orus</option>
-        </select>
-      </label>
-      <label class="f" for="level"><span id="t-level">Level</span>
-        <select id="level">
-          <option value="Beginner">Beginner</option>
-          <option value="Intermediate" selected>Intermediate</option>
-          <option value="Advanced">Advanced</option>
-        </select>
-      </label>
-      <label class="f" for="topic"><span id="t-topic">Topic</span>
-        <select id="topic">
-          <option value="everyday conversation">Everyday</option>
-          <option value="a job interview">Job interview</option>
-          <option value="travel">Travel</option>
-          <option value="studies and university life">Studies</option>
-          <option value="free choice">Free choice</option>
-        </select>
-      </label>
-      <label class="f" for="fallback"><span id="t-fallback">If native audio runs out</span>
-        <select id="fallback">
-          <option value="1" id="o-fb1">Switch to standard</option>
-          <option value="0" id="o-fb0">Stop and tell me</option>
-        </select>
-      </label>
-    </div>
-    <details style="margin-top:12px">
-      <summary id="t-adv">Model names (change if Google renames them)</summary>
+  <div id="viewPractice" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    <details class="settings" id="settings" open>
+      <summary id="t-settings">Settings</summary>
       <div class="grid">
-        <label class="f" for="mStd"><span>Standard Live</span><input id="mStd" spellcheck="false"></label>
-        <label class="f" for="mNat"><span>Native audio</span><input id="mNat" spellcheck="false"></label>
-        <label class="f" for="mGram"><span>Grammar coach</span><input id="mGram" spellcheck="false"></label>
+        <label class="f" for="apiKey"><span id="t-key">Gemini API key</span>
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza...">
+        </label>
+        <label class="f" for="modelKind"><span id="t-voicemodel">Voice model</span>
+          <select id="modelKind">
+            <option value="standard" id="o-std">Standard Live (longer sessions)</option>
+            <option value="native" id="o-nat">Native audio (most natural)</option>
+          </select>
+        </label>
+        <label class="f" for="voice"><span id="t-voice">Voice</span>
+          <select id="voice">
+            <option>Puck</option><option>Zephyr</option><option>Kore</option><option>Charon</option>
+            <option>Aoede</option><option>Fenrir</option><option>Leda</option><option>Orus</option>
+          </select>
+        </label>
+        <label class="f" for="level"><span id="t-level">Level</span>
+          <select id="level">
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate" selected>Intermediate</option>
+            <option value="Advanced">Advanced (IELTS 7 target)</option>
+          </select>
+        </label>
+        <label class="f" for="topic"><span id="t-topic">Topic</span>
+          <select id="topic">
+            <option value="everyday conversation">Everyday</option>
+            <option value="IELTS Speaking Part 1 (familiar topics)">IELTS Part 1</option>
+            <option value="IELTS Speaking Part 2 (a long answer about a topic card)">IELTS Part 2</option>
+            <option value="IELTS Speaking Part 3 (abstract discussion)">IELTS Part 3</option>
+            <option value="a job interview">Job interview</option>
+            <option value="travel">Travel</option>
+            <option value="studies and university life">Studies</option>
+            <option value="free choice">Free choice</option>
+          </select>
+        </label>
+        <label class="f" for="focus"><span data-bn="আমার দুর্বল জায়গা নিয়ে অনুশীলন" data-en="Practise my weak areas">Practise my weak areas</span>
+          <select id="focus">
+            <option value="1" data-bn="চালু" data-en="On">On</option>
+            <option value="0" data-bn="বন্ধ" data-en="Off">Off</option>
+          </select>
+        </label>
+        <label class="f" for="fallback"><span id="t-fallback">If native audio runs out</span>
+          <select id="fallback">
+            <option value="1" id="o-fb1">Switch to standard</option>
+            <option value="0" id="o-fb0">Stop and tell me</option>
+          </select>
+        </label>
       </div>
+      <details style="margin-top:12px">
+        <summary id="t-adv">Model names (change if Google renames them)</summary>
+        <div class="grid">
+          <label class="f" for="mStd"><span>Standard Live</span><input id="mStd" spellcheck="false"></label>
+          <label class="f" for="mNat"><span>Native audio</span><input id="mNat" spellcheck="false"></label>
+          <label class="f" for="mGram"><span data-bn="গ্রামার কোচ ও রিপোর্ট (Pro চাইলে gemini-3.1-pro-preview)" data-en="Grammar coach and reports (for Pro use gemini-3.1-pro-preview)">Grammar coach</span>
+            <input id="mGram" spellcheck="false" list="gramModels">
+            <datalist id="gramModels"><option value="gemini-3.8-flash"><option value="gemini-3.1-pro-preview"><option value="gemini-4-argon"><option value="gemini-3.5-flash-lite"></datalist>
+          </label>
+        </div>
+      </details>
+      <p class="hint" id="t-hint">Your key is stored only in this browser. Use headphones so the mic does not hear the voice.</p>
     </details>
-    <p class="hint" id="t-hint">Your key is stored only in this browser. Use headphones so the mic does not hear the voice.</p>
-  </details>
 
-  <div class="notice" id="notice" hidden></div>
+    <div class="notice" id="notice" hidden></div>
 
-  <main class="panels">
-    <section class="panel" aria-labelledby="h-conv">
-      <div class="ph"><h2 id="h-conv">Conversation</h2><small id="timer">00:00</small></div>
-      <div class="feed" id="convFeed" aria-live="polite"><p class="empty" id="convEmpty">Press the mic and start talking.</p></div>
-      <div class="ctl">
-        <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
-        <span class="status" id="status"></span>
-      </div>
-    </section>
+    <main class="panels">
+      <section class="panel" aria-labelledby="h-conv">
+        <div class="ph"><h2 id="h-conv">Conversation</h2><small id="timer">00:00</small></div>
+        <div class="feed" id="convFeed" aria-live="polite"><p class="empty" id="convEmpty">Press the mic and start talking.</p></div>
+        <div class="ctl">
+          <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
+          <span class="status" id="status"></span>
+        </div>
+      </section>
 
-    <section class="panel" aria-labelledby="h-coach">
-      <div class="ph"><h2 id="h-coach">Grammar coach</h2><small id="t-listening">Listening quietly</small></div>
-      <div class="feed" id="coachFeed" aria-live="polite"><p class="empty" id="coachEmpty">Each sentence you say is checked here.</p></div>
-    </section>
-  </main>
+      <section class="panel" aria-labelledby="h-coach">
+        <div class="ph"><h2 id="h-coach">Grammar coach</h2><small id="t-listening">Listening quietly</small></div>
+        <div class="feed" id="coachFeed" aria-live="polite"><p class="empty" id="coachEmpty">Each sentence you say is checked here.</p></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="viewProgress" hidden>
+    <div class="prog" id="progBody"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="exportBtn" type="button" data-bn="হিস্ট্রি ডাউনলোড (backup)" data-en="Download history (backup)">Download history</button>
+      <button class="btn" id="importBtn" type="button" data-bn="Backup থেকে ফিরিয়ে আনুন" data-en="Restore from backup">Restore</button>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+      <button class="btn danger" id="clearBtn" type="button" data-bn="সব হিস্ট্রি মুছুন" data-en="Delete all history">Delete all history</button>
+    </div>
+    <p class="hint" id="dataMsg"></p>
+    <p class="hint" data-bn="হিস্ট্রি এই ব্রাউজারেই সেভ থাকে। অন্য ফোন বা ব্রাউজারে নিতে হলে ডাউনলোড করে সেখানে ফিরিয়ে আনুন। ব্রাউজারের ডেটা মুছলে হিস্ট্রিও মুছে যাবে।" data-en="History is saved in this browser only. To move it to another phone or browser, download it and restore it there. Clearing browser data also clears history.">History is saved in this browser only.</p>
+  </div>
 </div>
 
 <script>
@@ -199,36 +256,45 @@ const I18N = {
     langBtn:"বাংলা"
   }
 };
+const CAT = {
+  tense:["Tense (কাল)","Tense"], agreement:["Subject-verb agreement","Subject-verb agreement"], article:["Article (a/an/the)","Articles (a/an/the)"],
+  preposition:["Preposition","Prepositions"], plural:["Singular/plural","Singular/plural"], word_choice:["শব্দ নির্বাচন","Word choice"],
+  word_order:["শব্দের ক্রম","Word order"], structure:["বাক্যের গঠন","Sentence structure"], linking:["Linking/cohesion","Linking & cohesion"], other:["অন্যান্য","Other"]
+};
+const CAT_IDS = Object.keys(CAT);
 
 /* ---------- settings ---------- */
 const $ = id => document.getElementById(id);
 const DEFAULTS = {
-  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1",
-  mStd:"gemini-3.8-live", mNat:"gemini-3.1-flash-live-preview", mGram:"gemini-2.5-flash",
+  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1", focus:"1",
+  mStd:"gemini-3.8-live", mNat:"gemini-3.1-flash-live-preview", mGram:"gemini-3.8-flash",
   ui:"bn", theme:""
 };
 let cfg = Object.assign({}, DEFAULTS);
 try { Object.assign(cfg, JSON.parse(localStorage.getItem("speakfix") || "{}")); } catch(e){}
-/* replace model names saved by an older version of this page */
 if (cfg.mStd === "gemini-live-2.5-flash-preview") cfg.mStd = DEFAULTS.mStd;
 if (cfg.mNat === "gemini-2.5-flash-native-audio-preview-09-2025") cfg.mNat = DEFAULTS.mNat;
+if (cfg.mGram === "gemini-2.5-flash") cfg.mGram = DEFAULTS.mGram;
 function saveCfg(){ try { localStorage.setItem("speakfix", JSON.stringify(cfg)); } catch(e){} }
 
-const fields = ["apiKey","modelKind","voice","level","topic","fallback","mStd","mNat","mGram"];
-fields.forEach(k => {
+["apiKey","modelKind","voice","level","topic","fallback","focus","mStd","mNat","mGram"].forEach(k => {
   const el = $(k); el.value = cfg[k];
-  el.addEventListener("change", () => { cfg[k] = el.value.trim(); saveCfg(); });
-  el.addEventListener("input", () => { cfg[k] = el.value.trim(); saveCfg(); });
+  if (el.value !== cfg[k] && el.tagName === "SELECT") el.selectedIndex = 0;
+  const h = () => { cfg[k] = el.value.trim(); saveCfg(); };
+  el.addEventListener("change", h); el.addEventListener("input", h);
 });
 
 function t(k){ return I18N[cfg.ui][k]; }
+function tx(bn, en){ return cfg.ui === "bn" ? bn : en; }
 function applyLang(){
   document.documentElement.lang = cfg.ui;
   const map = {"t-title":"title","t-settings":"settings","t-key":"key","t-voicemodel":"voicemodel","t-voice":"voice","t-level":"level",
     "t-topic":"topic","t-fallback":"fallback","t-adv":"adv","t-hint":"hint","o-std":"std","o-nat":"nat","o-fb1":"fb1","o-fb0":"fb0",
     "h-conv":"conv","h-coach":"coach","t-listening":"listening","convEmpty":"convEmpty","coachEmpty":"coachEmpty","langBtn":"langBtn"};
   for (const id in map){ const el=$(id); if(el) el.textContent = t(map[id]); }
+  document.querySelectorAll("[data-bn]").forEach(el => { el.textContent = el.dataset[cfg.ui]; });
   setMicLabel();
+  if (!$("viewProgress").hidden) renderProgress();
 }
 $("langBtn").addEventListener("click", () => { cfg.ui = cfg.ui === "bn" ? "en" : "bn"; saveCfg(); applyLang(); });
 $("themeBtn").addEventListener("click", () => {
@@ -239,9 +305,10 @@ $("themeBtn").addEventListener("click", () => {
 if (cfg.theme) document.documentElement.dataset.theme = cfg.theme;
 
 /* ---------- helpers ---------- */
-function esc(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function setStatus(msg, isErr){ const s=$("status"); s.textContent = msg || ""; s.classList.toggle("err", !!isErr); }
 function showNotice(msg){ const n=$("notice"); n.textContent=msg; n.hidden=!msg; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 function b64FromBytes(bytes){
   let bin = ""; const CH = 0x8000;
   for (let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
@@ -251,6 +318,50 @@ function bytesFromB64(b64){
   const bin = atob(b64); const out = new Uint8Array(bin.length);
   for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+function catLabel(c){ const x = CAT[c] || CAT.other; return cfg.ui === "bn" ? x[0] : x[1]; }
+function fmtDate(ms){
+  try { return new Date(ms).toLocaleString(cfg.ui === "bn" ? "bn-BD" : "en-GB", {dateStyle:"medium", timeStyle:"short"}); }
+  catch(e){ return new Date(ms).toISOString().slice(0,16).replace("T"," "); }
+}
+function halfBand(n){ return Math.round(n * 2) / 2; }
+function fmtBand(n){ return Number(n).toFixed(1); }
+
+/* ---------- history store ---------- */
+const HKEY = "speakfix_history";
+let hist = {sessions:[]};
+try { const h = JSON.parse(localStorage.getItem(HKEY) || "null"); if (h && Array.isArray(h.sessions)) hist = h; } catch(e){}
+function saveHist(){
+  try {
+    if (hist.sessions.length > 200) hist.sessions = hist.sessions.slice(-200);
+    localStorage.setItem(HKEY, JSON.stringify(hist));
+  } catch(e){}
+}
+let curSession = null;
+let pendingChecks = [];
+
+function aggregate(sessions){
+  const a = {sessions:sessions.length, sentences:0, correct:0, cats:{}, rec:{}, vocab:{}, catTotal:0};
+  sessions.forEach(s => (s.items || []).forEach(it => {
+    const r = it.r; if (!r) return;
+    a.sentences++; if (r.correct) a.correct++;
+    (r.mistakes || []).forEach(m => {
+      const c = CAT[m.category] ? m.category : "other";
+      a.cats[c] = (a.cats[c] || 0) + 1; a.catTotal++;
+      const key = (m.wrong || "").trim().toLowerCase() + "→" + (m.right || "").trim().toLowerCase();
+      if (m.wrong) { const e = a.rec[key] || (a.rec[key] = {wrong:m.wrong, right:m.right, cat:c, n:0}); e.n++; }
+    });
+    (r.vocab || []).forEach(v => {
+      if (!v || !v.basic || !v.better) return;
+      a.vocab[v.basic.toLowerCase()] = {basic:v.basic, better:v.better, at:it.at || 0};
+    });
+  }));
+  return a;
+}
+function weakCats(){
+  const recent = hist.sessions.slice(-10);
+  const a = aggregate(recent);
+  return Object.entries(a.cats).filter(([,n]) => n >= 3).sort((x,y) => y[1]-x[1]).slice(0,3).map(([c]) => (CAT[c] || CAT.other)[1]);
 }
 
 /* ---------- transcript UI ---------- */
@@ -286,27 +397,62 @@ function endTurn(){
   if (curAi) { curAi.classList.remove("live"); curAi = null; aiText = ""; }
 }
 
-/* ---------- grammar coach (REST) ---------- */
+/* ---------- Gemini text calls (grammar, report, plan) ---------- */
+async function callGemini(system, user, schema, temp){
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(cfg.mGram) + ":generateContent";
+  const body = {
+    systemInstruction:{parts:[{text:system}]},
+    contents:[{role:"user", parts:[{text:user}]}],
+    generationConfig:{temperature: temp == null ? 0.2 : temp}
+  };
+  if (schema) { body.generationConfig.responseMimeType = "application/json"; body.generationConfig.responseSchema = schema; }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey}, body:JSON.stringify(body)});
+    if (!res.ok && res.status !== 429 && res.status !== 503) {
+      let detail = "";
+      try { const j = await res.json(); detail = j.error && j.error.message ? ": " + String(j.error.message).slice(0, 140) : ""; } catch(e){}
+      throw new Error("HTTP " + res.status + detail);
+    }
+    if (res.ok) {
+      const data = await res.json();
+      const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+      if (!parts) throw new Error("empty reply");
+      return parts.map(p => p.text || "").join("");
+    }
+    if ((res.status === 429 || res.status === 503) && attempt === 0) { await sleep(1500); continue; }
+    throw new Error("HTTP " + res.status);
+  }
+}
+
+/* ---------- grammar coach ---------- */
 const GRAMMAR_SCHEMA = {
   type:"OBJECT",
   properties:{
     correct:{type:"BOOLEAN"},
     corrected:{type:"STRING"},
-    mistakes:{type:"ARRAY", items:{type:"OBJECT", properties:{wrong:{type:"STRING"}, right:{type:"STRING"}}, required:["wrong","right"]}},
+    mistakes:{type:"ARRAY", items:{type:"OBJECT", properties:{
+      wrong:{type:"STRING"}, right:{type:"STRING"}, category:{type:"STRING", enum:CAT_IDS}
+    }, required:["wrong","right","category"]}},
     explanation_bn:{type:"STRING"},
-    natural:{type:"STRING"}
+    suggestions:{type:"ARRAY", items:{type:"OBJECT", properties:{style:{type:"STRING"}, text:{type:"STRING"}}, required:["style","text"]}},
+    vocab:{type:"ARRAY", items:{type:"OBJECT", properties:{basic:{type:"STRING"}, better:{type:"STRING"}}, required:["basic","better"]}},
+    band7_bn:{type:"STRING"}
   },
-  required:["correct","corrected","mistakes","explanation_bn","natural"]
+  required:["correct","corrected","mistakes","explanation_bn","suggestions","vocab","band7_bn"]
 };
 function grammarPrompt(){
-  return "You are a kind English grammar coach for a Bengali-speaking learner (level: " + cfg.level + "). " +
+  return "You are a kind but exact English grammar coach for a Bengali-speaking learner (level: " + cfg.level + "). " +
+    "The target is IELTS Speaking band 7: a flexible range of structures, most sentences error-free, some less common vocabulary used naturally. " +
     "The input is one spoken sentence that was transcribed automatically, so ignore punctuation, capital letters and likely transcription slips. " +
     "Judge only grammar, word choice and how natural it sounds. " +
     "Return JSON. 'correct' is true only if the sentence needs no change. 'corrected' is the fixed sentence (same as input if correct). " +
-    "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix. " +
+    "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix and a category from the allowed list. " +
     "'explanation_bn' is a short explanation in Bengali, at most two sentences, naming the rule in simple words (keep English grammar terms in English). Empty string if correct. " +
-    "'natural' is one more native-sounding way to say it, or an empty string if the sentence is already natural. " +
-    "If the learner spoke Bengali instead of English, set correct to false, put the English translation in 'corrected', and explain in Bengali.";
+    "'suggestions' always has two entries, even when the sentence is correct: how a fluent speaker would say the same idea. " +
+    "The first has style 'Natural' (relaxed, native-sounding) and the second has style 'Band 7' (more advanced, with a complex structure or less common vocabulary, still natural in speech). Keep the meaning the same and each suggestion to one or two sentences. " +
+    "'vocab' lists up to two basic words or phrases from the sentence with a stronger band 7 alternative, or an empty list. " +
+    "'band7_bn' is one short Bengali tip on how this sentence could sound closer to band 7 (for example a complex sentence, a linking phrase or a less common word), or an empty string if it is already at that level or too short to matter. " +
+    "If the learner spoke Bengali instead of English, set correct to false, put the English translation in 'corrected', category 'other', and explain in Bengali.";
 }
 function highlight(text, mistakes){
   const lower = text.toLowerCase(); const ranges = [];
@@ -321,49 +467,125 @@ function highlight(text, mistakes){
   merged.forEach(([a,b]) => { out += esc(text.slice(pos,a)) + "<mark>" + esc(text.slice(a,b)) + "</mark>"; pos = b; });
   return out + esc(text.slice(pos));
 }
-async function checkGrammar(sentence){
+function cardHTML(orig, r){
+  let html = '<span class="tag">' + esc(t("you")) + '</span>';
+  if (r.correct) {
+    html += '<div class="orig">' + esc(orig) + '</div><div class="perfect">' + esc(t("perfect")) + '</div>';
+  } else {
+    html += '<div class="orig">' + highlight(orig, r.mistakes) + '</div>';
+    const cats = [...new Set((r.mistakes || []).map(m => CAT[m.category] ? m.category : "other"))];
+    if (cats.length) html += '<div class="chips">' + cats.map(c => '<span class="chip bad">' + esc(catLabel(c)) + '</span>').join("") + '</div>';
+    html += '<span class="tag">' + esc(t("fixed")) + '</span><div class="fix">✅ ' + esc(r.corrected) + '</div>';
+    if (r.explanation_bn) html += '<div class="why">' + esc(r.explanation_bn) + '</div>';
+  }
+  const sug = (r.suggestions && r.suggestions.length) ? r.suggestions : (r.natural ? [{style:"Natural", text:r.natural}] : []);
+  if (sug.length) {
+    html += '<span class="tag">' + esc(tx("কীভাবে বললে আরও ভালো হতো", "A better way to say it")) + '</span>';
+    sug.forEach(s => { html += '<div class="nat"><b>' + esc(s.style) + ':</b> ' + esc(s.text) + '</div>'; });
+  }
+  if (r.vocab && r.vocab.length)
+    html += '<div class="chips">' + r.vocab.map(v => '<span class="chip">' + esc(v.basic) + ' → <b>' + esc(v.better) + '</b></span>').join("") + '</div>';
+  if (r.band7_bn) html += '<div class="why">🎯 ' + esc(r.band7_bn) + '</div>';
+  return html;
+}
+function checkGrammar(sentence){
   $("coachEmpty") && $("coachEmpty").remove();
+  const sess = curSession;
+  const item = {orig:sentence, at:Date.now(), r:null};
+  if (sess) sess.items.push(item);
   const card = document.createElement("div");
   card.className = "card";
   card.innerHTML = '<span class="tag">' + esc(t("you")) + '</span><div class="orig">' + esc(sentence) + '</div><div class="pending">' + esc(t("checking")) + '</div>';
   $("coachFeed").appendChild(card); scrollDown($("coachFeed"));
-  try {
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(cfg.mGram) + ":generateContent";
-    const res = await fetch(url, {
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey},
-      body: JSON.stringify({
-        systemInstruction:{parts:[{text:grammarPrompt()}]},
-        contents:[{role:"user", parts:[{text:sentence}]}],
-        generationConfig:{responseMimeType:"application/json", responseSchema:GRAMMAR_SCHEMA, temperature:0.2}
-      })
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    const raw = data.candidates && data.candidates[0] && data.candidates[0].content.parts.map(p => p.text || "").join("");
-    const r = JSON.parse(raw);
-    let html = '<span class="tag">' + esc(t("you")) + '</span>';
-    if (r.correct) {
-      html += '<div class="orig">' + esc(sentence) + '</div><div class="perfect">' + esc(t("perfect")) + '</div>';
-    } else {
-      html += '<div class="orig">' + highlight(sentence, r.mistakes) + '</div>' +
-        '<span class="tag">' + esc(t("fixed")) + '</span><div class="fix">✅ ' + esc(r.corrected) + '</div>' +
-        (r.explanation_bn ? '<div class="why">' + esc(r.explanation_bn) + '</div>' : '');
+  const p = (async () => {
+    try {
+      const raw = await callGemini(grammarPrompt(), sentence, GRAMMAR_SCHEMA, 0.2);
+      const r = JSON.parse(raw);
+      if (!Array.isArray(r.mistakes)) r.mistakes = [];
+      item.r = r; saveHist();
+      card.innerHTML = cardHTML(sentence, r);
+    } catch (err) {
+      const pe = card.querySelector(".pending");
+      if (pe) { pe.className = "status err"; pe.textContent = t("gramfail") + " (" + err.message + ")"; }
     }
-    if (r.natural && r.natural.trim().toLowerCase() !== (r.corrected || sentence).trim().toLowerCase())
-      html += '<span class="tag">' + esc(t("natural")) + '</span><div class="nat">' + esc(r.natural) + '</div>';
-    card.innerHTML = html;
+    scrollDown($("coachFeed"));
+  })();
+  pendingChecks.push(p);
+}
+
+/* ---------- IELTS-style session report ---------- */
+const REPORT_SCHEMA = {
+  type:"OBJECT",
+  properties:{
+    fluency:{type:"NUMBER"}, lexical:{type:"NUMBER"}, grammar:{type:"NUMBER"},
+    reliability_bn:{type:"STRING"},
+    gap_to_7_bn:{type:"STRING"},
+    strengths_bn:{type:"STRING"},
+    weaknesses:{type:"ARRAY", items:{type:"OBJECT", properties:{area:{type:"STRING"}, detail_bn:{type:"STRING"}}, required:["area","detail_bn"]}},
+    actions_bn:{type:"ARRAY", items:{type:"STRING"}},
+    upgrades:{type:"ARRAY", items:{type:"OBJECT", properties:{basic:{type:"STRING"}, better:{type:"STRING"}}, required:["basic","better"]}}
+  },
+  required:["fluency","lexical","grammar","reliability_bn","gap_to_7_bn","strengths_bn","weaknesses","actions_bn","upgrades"]
+};
+function reportPrompt(){
+  return "You are an experienced IELTS Speaking examiner coaching a Bengali-speaking candidate who is aiming for band 7.0. " +
+    "You get the candidate's spoken sentences (automatic transcript) with the corrections already found. " +
+    "Estimate three criteria on the IELTS 0-9 scale in half-band steps: fluency and coherence, lexical resource, grammatical range and accuracy. " +
+    "Be realistic and strict, and use the public band descriptors. Band 7 means: speaks at length without noticeable effort, uses a range of linking devices, " +
+    "uses less common vocabulary with some awareness of style, uses a range of complex structures with good flexibility, and makes frequent error-free sentences with only occasional slips. " +
+    "You only have text, so you cannot hear pauses or pronunciation: infer fluency from sentence length, linking and variety, and do not score pronunciation. " +
+    "If there are fewer than six sentences, say in 'reliability_bn' that the estimate is rough. " +
+    "Write every *_bn field in Bengali (keep English terms and examples in English). " +
+    "'gap_to_7_bn': in two or three sentences, what separates this candidate from band 7. " +
+    "'weaknesses': the two to four biggest weak areas with concrete detail and an example from the transcript. " +
+    "'actions_bn': exactly three specific practice actions for the next session. " +
+    "'upgrades': up to five basic words or phrases the candidate used with a better band 7 alternative.";
+}
+function sessionTranscript(sess){
+  return sess.items.filter(i => i.r).map((i, n) => {
+    const errs = (i.r.mistakes || []).map(m => m.category).join(", ");
+    return (n+1) + ". Said: " + i.orig + (i.r.correct ? " | no errors" : " | Corrected: " + i.r.corrected + " | Error types: " + errs);
+  }).join("\n");
+}
+async function makeReport(sess){
+  const card = document.createElement("div");
+  card.className = "report";
+  card.innerHTML = '<div class="pending">' + esc(tx("সেশনের রিপোর্ট তৈরি হচ্ছে…", "Preparing your session report…")) + '</div>';
+  $("coachFeed").appendChild(card); scrollDown($("coachFeed"));
+  try {
+    await Promise.allSettled(pendingChecks);
+    const done = sess.items.filter(i => i.r);
+    if (done.length < 3) { card.remove(); return; }
+    const raw = await callGemini(reportPrompt(), "Level: " + sess.level + "\nTopic: " + sess.topic + "\nSentences: " + done.length + "\n\n" + sessionTranscript(sess), REPORT_SCHEMA, 0.3);
+    const s = JSON.parse(raw);
+    const clamp = n => Math.max(0, Math.min(9, halfBand(Number(n) || 0)));
+    s.fluency = clamp(s.fluency); s.lexical = clamp(s.lexical); s.grammar = clamp(s.grammar);
+    s.overall = halfBand((s.fluency + s.lexical + s.grammar) / 3);
+    sess.summary = s; saveHist();
+    card.innerHTML = reportHTML(s);
   } catch (err) {
-    const p = card.querySelector(".pending");
-    if (p) { p.className = "status err"; p.textContent = t("gramfail") + " (" + err.message + ")"; }
+    card.innerHTML = '<div class="status err">' + esc(tx("রিপোর্ট তৈরি হয়নি", "Report failed")) + " (" + esc(err.message) + ")</div>";
   }
   scrollDown($("coachFeed"));
+}
+function reportHTML(s){
+  const b = (label, v, main) => '<div class="band' + (main ? " main" : "") + '"><b>' + fmtBand(v) + '</b><span>' + esc(label) + '</span></div>';
+  let h = '<h4>' + esc(tx("IELTS Speaking অনুমান (লক্ষ্য ৭.০)", "IELTS Speaking estimate (target 7.0)")) + '</h4>';
+  h += '<div class="bands">' + b(tx("Fluency & Coherence", "Fluency & Coherence"), s.fluency) + b("Lexical Resource", s.lexical) + b("Grammar", s.grammar) + b(tx("গড় (৩টি)", "Average (3 of 4)"), s.overall, true) + '</div>';
+  h += '<div class="pending">' + esc(tx("Pronunciation লেখা থেকে মাপা যায় না, তাই ধরা হয়নি। এটা শুধু অনুমান, আসল পরীক্ষার ফল নয়।", "Pronunciation can't be judged from text, so it is not scored. This is a rough estimate, not an exam result.")) + '</div>';
+  if (s.reliability_bn) h += '<div class="why">' + esc(s.reliability_bn) + '</div>';
+  if (s.gap_to_7_bn) h += '<span class="tag">' + esc(tx("৭.০ থেকে দূরত্ব", "Gap to 7.0")) + '</span><div class="why">' + esc(s.gap_to_7_bn) + '</div>';
+  if (s.strengths_bn) h += '<span class="tag">' + esc(tx("ভালো দিক", "Strengths")) + '</span><div class="fix">' + esc(s.strengths_bn) + '</div>';
+  if (s.weaknesses && s.weaknesses.length) h += '<span class="tag">' + esc(tx("দুর্বল দিক", "Weak areas")) + '</span><ul>' + s.weaknesses.map(w => '<li><b>' + esc(w.area) + '</b>: ' + esc(w.detail_bn) + '</li>').join("") + '</ul>';
+  if (s.actions_bn && s.actions_bn.length) h += '<span class="tag">' + esc(tx("পরের সেশনে করণীয়", "Next session")) + '</span><ul>' + s.actions_bn.map(a => '<li>' + esc(a) + '</li>').join("") + '</ul>';
+  if (s.upgrades && s.upgrades.length) h += '<div class="chips">' + s.upgrades.map(v => '<span class="chip">' + esc(v.basic) + ' → <b>' + esc(v.better) + '</b></span>').join("") + '</div>';
+  return h;
 }
 
 /* ---------- audio: mic capture ---------- */
 const WORKLET = "class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('cap',P);";
 let micCtx = null, micStream = null, micNode = null, micSrc = null, muteGain = null;
-let pending = [], pendingLen = 0, resampleCarry = [];
+let pending = [], pendingLen = 0;
 
 function floatToPcm16(f){
   const o = new Int16Array(f.length);
@@ -432,10 +654,15 @@ let ws = null, active = false, setupDone = false, resumeHandle = null, retries =
 let startedAt = 0, timerId = null;
 
 function convPrompt(){
-  return "You are a friendly English conversation partner for a Bengali-speaking learner. Learner level: " + cfg.level + ". Topic: " + cfg.topic + ". " +
-    "Always reply in English, in one to three short sentences, then ask one easy follow-up question to keep the learner talking. " +
+  let p = "You are a friendly English conversation partner for a Bengali-speaking learner who is working towards IELTS Speaking band 7. Learner level: " + cfg.level + ". Topic: " + cfg.topic + ". " +
+    "Always reply in English, in one to three short sentences, then ask one open follow-up question that needs a developed answer (reasons, examples, comparisons) to keep the learner talking. " +
     "Match your vocabulary and speed to the level. Do not correct grammar; a separate coach does that. " +
     "If the learner speaks Bengali, answer briefly in English and gently invite them to try again in English.";
+  if (cfg.focus === "1") {
+    const w = weakCats();
+    if (w.length) p += " This learner often struggles with: " + w.join(", ") + ". Without mentioning it, ask questions that naturally make them use these (for example, questions about the past or the future for tense problems).";
+  }
+  return p;
 }
 function modelName(kind){ return kind === "native" ? cfg.mNat : cfg.mStd; }
 
@@ -513,6 +740,10 @@ async function startSession(){
   showNotice(""); setStatus(t("connecting"));
   try { await startMic(); } catch(e){ setStatus(t("nomic"), true); return; }
   active = true; usingKind = cfg.modelKind; resumeHandle = null; retries = 0;
+  curSession = {id:Date.now().toString(36) + Math.random().toString(36).slice(2,6), start:Date.now(), end:0,
+    level:cfg.level, topic:cfg.topic, items:[], summary:null};
+  pendingChecks = [];
+  hist.sessions.push(curSession);
   $("micBtn").setAttribute("aria-pressed", "true"); setMicLabel();
   startedAt = Date.now(); tick(); timerId = setInterval(tick, 1000);
   $("settings").open = false;
@@ -524,8 +755,147 @@ function stopSession(){
   ws = null; stopMic(); stopPlayback(); endTurn();
   clearInterval(timerId);
   $("micBtn").setAttribute("aria-pressed", "false"); setMicLabel();
+  const sess = curSession; curSession = null;
+  if (!sess) return;
+  sess.end = Date.now();
+  if (!sess.items.length) { hist.sessions = hist.sessions.filter(s => s !== sess); saveHist(); return; }
+  saveHist();
+  if (sess.items.length >= 3) makeReport(sess);
 }
 $("micBtn").addEventListener("click", () => { active ? (stopSession(), setStatus("")) : startSession(); });
+
+/* ---------- progress view ---------- */
+function showView(name){
+  const prog = name === "progress";
+  $("viewPractice").hidden = prog; $("viewProgress").hidden = !prog;
+  $("viewPractice").style.display = prog ? "none" : "flex";
+  $("tabPractice").setAttribute("aria-pressed", String(!prog));
+  $("tabProgress").setAttribute("aria-pressed", String(prog));
+  if (prog) renderProgress();
+}
+$("tabPractice").addEventListener("click", () => showView("practice"));
+$("tabProgress").addEventListener("click", () => showView("progress"));
+
+function renderProgress(){
+  const body = $("progBody");
+  const sessions = hist.sessions.filter(s => s.items && s.items.some(i => i.r));
+  if (!sessions.length) {
+    body.innerHTML = '<p class="empty" style="margin:20px auto">' + esc(tx("এখনও কোনো হিস্ট্রি নেই। একটা সেশন শেষ করলে এখানে আপনার অগ্রগতি দেখাবে।", "No history yet. Finish a session and your progress will show up here.")) + '</p>';
+    return;
+  }
+  const a = aggregate(sessions);
+  const acc = a.sentences ? Math.round(a.correct / a.sentences * 100) : 0;
+  const withBand = sessions.filter(s => s.summary && typeof s.summary.overall === "number");
+  const lastBand = withBand.length ? withBand[withBand.length-1].summary.overall : null;
+  let h = '';
+
+  h += '<section><div class="tiles">' +
+    '<div class="band"><b>' + a.sessions + '</b><span>' + esc(tx("সেশন", "Sessions")) + '</span></div>' +
+    '<div class="band"><b>' + a.sentences + '</b><span>' + esc(tx("বাক্য", "Sentences")) + '</span></div>' +
+    '<div class="band"><b>' + acc + '%</b><span>' + esc(tx("ভুলহীন বাক্য", "Error-free")) + '</span></div>' +
+    '<div class="band main"><b>' + (lastBand == null ? "–" : fmtBand(lastBand)) + '</b><span>' + esc(tx("সর্বশেষ অনুমান (লক্ষ্য ৭.০)", "Latest estimate (target 7.0)")) + '</span></div>' +
+    '</div></section>';
+
+  const cats = Object.entries(a.cats).sort((x,y) => y[1]-x[1]);
+  h += '<section><h3>' + esc(tx("কোন দিকে বেশি দুর্বল", "Where you are weakest")) + '</h3>';
+  if (cats.length) {
+    const max = cats[0][1];
+    h += '<p class="why" style="margin:0">' + esc(tx("সবচেয়ে বেশি ভুল: ", "Most frequent: ")) + '<b>' + esc(catLabel(cats[0][0])) + '</b> (' + cats[0][1] + tx(" বার", " times") + ')</p>';
+    h += '<div class="bars">' + cats.map(([c,n]) =>
+      '<div class="brow"><span>' + esc(catLabel(c)) + '</span><div class="btrack"><div class="bfill" style="width:' + Math.round(n / max * 100) + '%"></div></div><span class="num">' + n + '</span></div>').join("") + '</div>';
+  } else h += '<p class="why" style="margin:0">' + esc(tx("কোনো ভুল ধরা পড়েনি।", "No mistakes recorded.")) + '</p>';
+  h += '</section>';
+
+  const rec = Object.values(a.rec).sort((x,y) => y.n - x.n).slice(0, 10);
+  if (rec.length) {
+    h += '<section><h3>' + esc(tx("যে ভুলগুলো বারবার হচ্ছে", "Mistakes you repeat")) + '</h3><ul>' +
+      rec.map(r => '<li class="rec"><s>' + esc(r.wrong) + '</s> → <em>' + esc(r.right) + '</em><span class="chip">' + esc(catLabel(r.cat)) + '</span><span class="chip">×' + r.n + '</span></li>').join("") + '</ul></section>';
+  }
+
+  if (withBand.length) {
+    h += '<section><h3>' + esc(tx("IELTS অনুমানের গতি", "Band estimate over time")) + '</h3><div class="bars">' +
+      withBand.slice(-10).map(s => '<div class="brow"><span>' + esc(fmtDate(s.start)) + '</span><div class="btrack"><div class="bfill ok" style="width:' + Math.round(s.summary.overall / 9 * 100) + '%"></div></div><span class="num">' + fmtBand(s.summary.overall) + '</span></div>').join("") +
+      '</div><p class="hint" style="margin:0">' + esc(tx("৭.০ = বারের ৭৮% জায়গা। শুধু ৩টি মানদণ্ডের অনুমান।", "7.0 sits at 78% of the bar. Estimate from 3 criteria only.")) + '</p></section>';
+  }
+
+  const voc = Object.values(a.vocab).sort((x,y) => y.at - x.at).slice(0, 20);
+  if (voc.length) {
+    h += '<section><h3>' + esc(tx("Band 7 শব্দভান্ডার", "Band 7 vocabulary bank")) + '</h3><div class="chips">' +
+      voc.map(v => '<span class="chip">' + esc(v.basic) + ' → <b>' + esc(v.better) + '</b></span>').join("") + '</div></section>';
+  }
+
+  h += '<section><h3>' + esc(tx("আমার জন্য স্টাডি প্ল্যান", "Study plan for me")) + '</h3>' +
+    '<div class="row"><button class="btn" id="planBtn" type="button">' + esc(tx("৭ দিনের প্ল্যান বানাও", "Make a 7-day plan")) + '</button></div>' +
+    '<div class="plan" id="planOut" hidden></div></section>';
+
+  h += '<section><h3>' + esc(tx("পুরনো সেশন", "Past sessions")) + '</h3>';
+  sessions.slice().reverse().slice(0, 30).forEach(s => {
+    const done = s.items.filter(i => i.r);
+    const ok = done.filter(i => i.r.correct).length;
+    const mins = s.end ? Math.max(1, Math.round((s.end - s.start) / 60000)) : null;
+    h += '<details class="sess"><summary><span>' + esc(fmtDate(s.start)) + (mins ? ' · ' + mins + tx(" মিনিট", " min") : '') + '</span><span>' +
+      done.length + tx(" বাক্য", " sentences") + ' · ' + ok + tx(" ঠিক", " correct") + (s.summary ? ' · ' + fmtBand(s.summary.overall) : '') + '</span></summary><div class="body">' +
+      (s.summary ? '<div class="report">' + reportHTML(s.summary) + '</div>' : '') +
+      done.slice(0, 60).map(i => '<div class="card">' + cardHTML(i.orig, i.r) + '</div>').join("") + '</div></details>';
+  });
+  h += '</section>';
+
+  body.innerHTML = h;
+  const pb = $("planBtn"); if (pb) pb.addEventListener("click", makePlan);
+}
+
+async function makePlan(){
+  const out = $("planOut"); out.hidden = false;
+  if (!cfg.apiKey) { out.textContent = t("nokey"); return; }
+  out.textContent = tx("প্ল্যান তৈরি হচ্ছে…", "Building your plan…");
+  const sessions = hist.sessions.filter(s => s.items && s.items.some(i => i.r));
+  const a = aggregate(sessions);
+  const cats = Object.entries(a.cats).sort((x,y) => y[1]-x[1]).map(([c,n]) => (CAT[c] || CAT.other)[1] + ": " + n).join("; ");
+  const rec = Object.values(a.rec).sort((x,y) => y.n - x.n).slice(0, 8).map(r => r.wrong + " -> " + r.right + " (x" + r.n + ")").join("; ");
+  const bands = sessions.filter(s => s.summary).slice(-5).map(s => s.summary.overall).join(", ");
+  const user = "Sessions: " + a.sessions + ". Sentences: " + a.sentences + ". Error-free: " + a.correct + ". Error categories: " + cats + ". Repeated mistakes: " + rec + ". Recent band estimates: " + (bands || "none yet") + ".";
+  const sys = "You are an IELTS Speaking coach for a Bengali-speaking learner aiming for band 7.0. Write a realistic 7-day practice plan in Bengali (keep English terms and examples in English). " +
+    "Each day is about 20 minutes and uses spoken practice in this app (Part 1, 2 or 3 topics), aimed at the weakest categories and repeated mistakes below. " +
+    "One short line for the goal and one for the exercise per day. No introduction, no closing remarks. Plain text, no markdown symbols.";
+  try { out.textContent = (await callGemini(sys, user, null, 0.5)).trim(); }
+  catch (err) { out.textContent = tx("প্ল্যান তৈরি হয়নি", "Plan failed") + " (" + err.message + ")"; }
+}
+
+/* ---------- backup / restore / clear ---------- */
+function dataMsg(m){ $("dataMsg").textContent = m || ""; }
+$("exportBtn").addEventListener("click", () => {
+  try {
+    const blob = new Blob([JSON.stringify(hist)], {type:"application/json"});
+    const url = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = url; a.download = "speak-and-fix-history-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    dataMsg(tx("ডাউনলোড শুরু হয়েছে।", "Download started."));
+  } catch(e){ dataMsg(tx("ডাউনলোড হয়নি।", "Download failed.")); }
+});
+$("importBtn").addEventListener("click", () => $("importFile").click());
+$("importFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (!data || !Array.isArray(data.sessions)) throw new Error("bad file");
+    const have = new Set(hist.sessions.map(s => s.id)); let added = 0;
+    data.sessions.forEach(s => { if (s && s.id && Array.isArray(s.items) && !have.has(s.id)) { hist.sessions.push(s); added++; } });
+    hist.sessions.sort((x,y) => x.start - y.start); saveHist(); renderProgress();
+    dataMsg(tx(added + "টি সেশন ফিরিয়ে আনা হয়েছে।", added + " sessions restored."));
+  } catch(err){ dataMsg(tx("ফাইলটা পড়া যায়নি।", "Could not read that file.")); }
+  e.target.value = "";
+});
+let clearArmed = 0;
+$("clearBtn").addEventListener("click", () => {
+  if (Date.now() - clearArmed < 4000) {
+    hist = {sessions:[]}; saveHist(); clearArmed = 0; renderProgress();
+    $("clearBtn").textContent = $("clearBtn").dataset[cfg.ui]; dataMsg(tx("সব হিস্ট্রি মুছে গেছে।", "All history deleted."));
+  } else {
+    clearArmed = Date.now();
+    $("clearBtn").textContent = tx("নিশ্চিত? আবার চাপুন", "Sure? Tap again");
+    setTimeout(() => { if (clearArmed) { clearArmed = 0; $("clearBtn").textContent = $("clearBtn").dataset[cfg.ui]; } }, 4000);
+  }
+});
 
 applyLang();
 </script>
