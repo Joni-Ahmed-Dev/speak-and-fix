@@ -784,13 +784,47 @@ function stopMic(){
   micCtx = micStream = micNode = micSrc = null; pending = []; pendingLen = 0;
 }
 
-/* ---------- mic-reactive glow: driven by the real mic input ---------- */
+/* ---------- mic + speaker reactive glow: driven by real audio input ---------- */
 let vizAn = null, vizData = null, vizRaf = 0, vizLevel = 0, vizGen = 0;
 let vizOwnCtx = null, vizOwnSrc = null, vizOwnStream = null;
-async function vizStart(){
-  const gen = ++vizGen; /* invalidate any fade-out in progress */
-  if (vizRaf) return;
+let outMaster = null, playAn = null, playData = null;
+let micActive = false, playActive = false;
+function vizRms(d){
+  let sum = 0;
+  for (let i = 0; i < d.length; i++){ const v = (d[i] - 128) / 128; sum += v * v; }
+  return Math.sqrt(sum / d.length);
+}
+function glowTick(){
+  let target = 0;
+  if (vizAn && micActive){ vizAn.getByteTimeDomainData(vizData); target = Math.max(target, vizRms(vizData)); }
+  if (playAn && playActive){ playAn.getByteTimeDomainData(playData); target = Math.max(target, vizRms(playData)); }
+  target = Math.min(1, target * 3.5);
+  vizLevel += (target - vizLevel) * (target > vizLevel ? 0.45 : 0.2);
+  $("micBtn").style.setProperty("--mic-level", vizLevel.toFixed(3));
+  if (micActive || playActive) vizRaf = requestAnimationFrame(glowTick);
+  else if (vizLevel > 0.02){ vizLevel *= 0.8; vizRaf = requestAnimationFrame(glowTick); }
+  else vizRaf = 0;
+}
+function glowEnsure(){
   $("micBtn").classList.add("live");
+  if (!vizRaf) vizRaf = requestAnimationFrame(glowTick);
+}
+function glowFade(){
+  const gen = ++vizGen;
+  if (vizRaf){ cancelAnimationFrame(vizRaf); vizRaf = 0; }
+  const btn = $("micBtn");
+  const fade = () => {
+    if (gen !== vizGen) return;
+    vizLevel *= 0.78;
+    btn.style.setProperty("--mic-level", vizLevel.toFixed(3));
+    if (vizLevel > 0.015) requestAnimationFrame(fade);
+    else { btn.style.setProperty("--mic-level", "0"); btn.classList.remove("live"); }
+  };
+  fade();
+}
+async function vizStart(){
+  const gen = ++vizGen;
+  if (micActive) return;
   try {
     if (!vizAn) {
       if (micStream && micCtx && micSrc) {
@@ -810,58 +844,63 @@ async function vizStart(){
       try { if (vizAn.context.state === "suspended") await vizAn.context.resume(); } catch(e){}
       if (gen !== vizGen) throw 0;
     }
-    vizTick();
-  } catch(e){ $("micBtn").classList.remove("live"); vizCleanup(); }
-}
-function vizTick(){
-  if (!vizAn) return;
-  vizAn.getByteTimeDomainData(vizData);
-  let sum = 0;
-  for (let i = 0; i < vizData.length; i++){ const v = (vizData[i] - 128) / 128; sum += v * v; }
-  const target = Math.min(1, Math.sqrt(sum / vizData.length) * 3.5);
-  vizLevel += (target - vizLevel) * (target > vizLevel ? 0.45 : 0.2);
-  $("micBtn").style.setProperty("--mic-level", vizLevel.toFixed(3));
-  vizRaf = requestAnimationFrame(vizTick);
+    micActive = true;
+    glowEnsure();
+  } catch(e){ vizCleanup(); }
 }
 function vizStop(hard){
-  const gen = ++vizGen;
-  if (vizRaf){ cancelAnimationFrame(vizRaf); vizRaf = 0; }
-  const btn = $("micBtn");
-  if (hard){ vizLevel = 0; btn.style.setProperty("--mic-level", "0"); btn.classList.remove("live"); vizCleanup(); return; }
-  const fade = () => {
-    if (gen !== vizGen) return;
-    vizLevel *= 0.78;
-    btn.style.setProperty("--mic-level", vizLevel.toFixed(3));
-    if (vizLevel > 0.015) requestAnimationFrame(fade);
-    else { btn.style.setProperty("--mic-level", "0"); btn.classList.remove("live"); vizCleanup(); }
-  };
-  fade();
+  ++vizGen;
+  micActive = false;
+  if (hard){
+    if (vizRaf){ cancelAnimationFrame(vizRaf); vizRaf = 0; }
+    vizCleanup();
+    if (playActive){ vizLevel = 0; glowEnsure(); }
+    else { vizLevel = 0; $("micBtn").style.setProperty("--mic-level", "0"); $("micBtn").classList.remove("live"); }
+    return;
+  }
+  if (!playActive) glowFade();
 }
 function vizCleanup(){
   try { vizAn && vizAn.disconnect(); } catch(e){}
   try { vizOwnSrc && vizOwnSrc.disconnect(); } catch(e){}
   try { vizOwnStream && vizOwnStream.getTracks().forEach(tr => tr.stop()); } catch(e){}
   try { vizOwnCtx && vizOwnCtx.close(); } catch(e){}
-  vizAn = vizData = null; vizOwnCtx = vizOwnSrc = vizOwnStream = null; vizLevel = 0;
+  vizAn = vizData = null; vizOwnCtx = vizOwnSrc = vizOwnStream = null;
 }
+/* speaker playback glow */
+function playGlowStart(){ playActive = true; glowEnsure(); }
+function playGlowStop(){ playActive = false; if (!micActive) glowFade(); }
 
 /* ---------- audio: playback ---------- */
 let outCtx = null, nextTime = 0, playing = [];
 function playPcm(b64){
   if (!outCtx) { outCtx = new AudioContext({sampleRate:24000}); nextTime = 0; }
   if (outCtx.state === "suspended") outCtx.resume();
+  if (!outMaster){
+    outMaster = outCtx.createGain();
+    playAn = outCtx.createAnalyser();
+    playAn.fftSize = 512;
+    playData = new Uint8Array(playAn.fftSize);
+    outMaster.connect(playAn);
+    playAn.connect(outCtx.destination);
+  }
   const bytes = bytesFromB64(b64);
   const i16 = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
   const f = new Float32Array(i16.length);
   for (let i=0;i<i16.length;i++) f[i] = i16[i] / 0x8000;
   const buf = outCtx.createBuffer(1, f.length, 24000); buf.copyToChannel(f, 0);
-  const src = outCtx.createBufferSource(); src.buffer = buf; src.connect(outCtx.destination);
+  const src = outCtx.createBufferSource(); src.buffer = buf; src.connect(outMaster);
   nextTime = Math.max(nextTime, outCtx.currentTime + 0.02);
   src.start(nextTime); nextTime += buf.duration;
-  playing.push(src); src.onended = () => { playing = playing.filter(s => s !== src); };
+  playing.push(src); playGlowStart();
+  src.onended = () => {
+    playing = playing.filter(s => s !== src);
+    setTimeout(() => { if (!playing.length) playGlowStop(); }, 350);
+  };
 }
 function stopPlayback(){
   playing.forEach(s => { try { s.stop(); } catch(e){} }); playing = []; nextTime = 0;
+  playGlowStop();
 }
 
 /* ---------- Gemini Live socket ---------- */
