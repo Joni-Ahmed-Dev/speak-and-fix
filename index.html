@@ -1135,13 +1135,17 @@ function audStop(){
 }
 function audioToggle(){ if (audBusy) return; audRec ? audSend() : audBegin(); }
 function speakAudio(text){
-  const done = () => { if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “কথা শুরু” চাপুন।", "Your turn. Tap Start Talking.")); };
+  const done = () => {
+    vizStop();
+    if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “কথা শুরু” চাপুন।", "Your turn. Tap Start Talking."));
+  };
   if (!window.speechSynthesis) { done(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text); const v = pickVoice();
   if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
   u.onend = u.onerror = done;
   setStatus(tx("বলছে…", "Speaking…"));
+  vizStart();
   speechSynthesis.speak(u);
 }
 async function audioOpen(){
