@@ -48,6 +48,14 @@ button,select,input{font:inherit;color:inherit}
 .expandBtn:hover{color:var(--fg)}
 .btn:hover{border-color:var(--accent)}
 .btn.tab[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+header{position:relative}
+#menuBtn{font-size:18px;line-height:1;padding:6px 14px}
+.menu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.25);z-index:50;display:flex;flex-direction:column;gap:2px}
+.menu-item{background:transparent;border:0;border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer;font-size:15px;color:var(--fg)}
+.menu-item:hover{background:var(--line)}
+.menu-item.active{color:var(--accent);font-weight:700}
+.menu-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;font-size:15px;border-top:1px solid var(--line)}
+.menu-row .btn{padding:4px 12px;font-size:14px}
 .btn.danger{color:var(--bad)}
 .btn:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,.mic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 details.settings{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
@@ -135,11 +143,21 @@ ul.plain{list-style:none;padding:0;margin:0}
   <header>
     <h1 id="t-title">Speak &amp; Fix</h1>
     <div class="bar">
-      <button class="btn tab" id="tabPractice" type="button" aria-pressed="true" data-bn="অনুশীলন" data-en="Practice">Practice</button>
-      <button class="btn tab" id="tabProgress" type="button" aria-pressed="false" data-bn="অগ্রগতি" data-en="Progress">Progress</button>
-      <button class="btn" id="langBtn" type="button">English</button>
-      <button class="btn" id="themeBtn" type="button" aria-label="Theme">◐</button>
+      <button class="btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
+    <nav class="menu" id="menu" hidden>
+      <button class="menu-item active" id="mPractice" type="button" data-bn="অনুশীলন" data-en="Practice">Practice</button>
+      <button class="menu-item" id="mProgress" type="button" data-bn="অগ্রগতি" data-en="Progress">Progress</button>
+      <button class="menu-item" id="mSettings" type="button" data-bn="সেটিংস" data-en="Settings">Settings</button>
+      <div class="menu-row">
+        <span data-bn="ভাষা" data-en="Language">Language</span>
+        <button class="btn" id="langBtn" type="button">English</button>
+      </div>
+      <div class="menu-row">
+        <span data-bn="থিম" data-en="Theme">Theme</span>
+        <button class="btn" id="themeBtn" type="button" aria-label="Theme">◐</button>
+      </div>
+    </nav>
   </header>
 
   <div id="viewPractice" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
@@ -270,8 +288,8 @@ const I18N = {
     start:"কথা শুরু", stop:"থামান", connecting:"সংযোগ হচ্ছে…", live:"শুনছি। কথা বলুন।",
     you:"আপনি", gemini:"Gemini", perfect:"👍 একদম ঠিক আছে!", fixed:"ঠিক বাক্য", natural:"আরও স্বাভাবিক", checking:"পরীক্ষা হচ্ছে…",
     nokey:"আগে সেটিংসে Gemini API key দিন।", nomic:"মাইক ব্যবহারের অনুমতি পাওয়া যায়নি।", reconnecting:"আবার সংযোগ হচ্ছে…",
-    fellback:"নেটিভ অডিও চলছে না। স্ট্যান্ডার্ড মডেলে চলে গেছি।", failed:"সংযোগ ব্যর্থ", gramfail:"গ্রামার পরীক্ষা হয়নি",
-    langBtn:"English"
+    fellback:"নেটিভ অডিও চলছে না। স্ট্যান্ডার্ড মডেলে চলে গেছি।", failed:"সংযোগ ব্যর্থ", gramfail:"গ্রামার হয়নি",
+    langBtn:"English", themeDark:"ডার্ক", themeLight:"লাইট"
   },
   en: {
     title:"Speak & Fix", settings:"Settings", key:"Gemini API key", voicemodel:"Voice model", voice:"Voice",
@@ -284,7 +302,7 @@ const I18N = {
     you:"You", gemini:"Gemini", perfect:"👍 Perfect!", fixed:"Corrected", natural:"More natural", checking:"Checking…",
     nokey:"Add your Gemini API key in Settings first.", nomic:"Microphone permission was denied.", reconnecting:"Reconnecting…",
     fellback:"Native audio is not available right now. Switched to the standard model.", failed:"Connection failed", gramfail:"Grammar check failed",
-    langBtn:"বাংলা"
+    langBtn:"বাংলা", themeDark:"Dark", themeLight:"Light"
   }
 };
 const CAT = {
@@ -361,15 +379,21 @@ function applyLang(){
   setMicLabel();
   if (!$("viewProgress").hidden) renderProgress();
   collapseFeed("convFeed","convExpand"); collapseFeed("coachFeed","coachExpand");
+  setThemeLabel();
   renderGoal();
 }
 $("langBtn").addEventListener("click", () => { cfg.ui = cfg.ui === "bn" ? "en" : "bn"; saveCfg(); applyLang(); });
-$("themeBtn").addEventListener("click", () => {
-  const dark = document.documentElement.dataset.theme === "dark" ||
+function isDark(){
+  return document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-  cfg.theme = dark ? "light" : "dark"; saveCfg(); document.documentElement.dataset.theme = cfg.theme;
+}
+function setThemeLabel(){ $("themeBtn").textContent = t(isDark() ? "themeLight" : "themeDark"); }
+$("themeBtn").addEventListener("click", () => {
+  cfg.theme = isDark() ? "light" : "dark"; saveCfg(); document.documentElement.dataset.theme = cfg.theme;
+  setThemeLabel();
 });
 if (cfg.theme) document.documentElement.dataset.theme = cfg.theme;
+setThemeLabel();
 
 /* ---------- helpers ---------- */
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -1139,12 +1163,25 @@ function showView(name){
   const prog = name === "progress";
   $("viewPractice").hidden = prog; $("viewProgress").hidden = !prog;
   $("viewPractice").style.display = prog ? "none" : "flex";
-  $("tabPractice").setAttribute("aria-pressed", String(!prog));
-  $("tabProgress").setAttribute("aria-pressed", String(prog));
+  $("mPractice").classList.toggle("active", !prog);
+  $("mProgress").classList.toggle("active", prog);
   if (prog) renderProgress();
 }
-$("tabPractice").addEventListener("click", () => showView("practice"));
-$("tabProgress").addEventListener("click", () => showView("progress"));
+/* ---------- hamburger menu ---------- */
+function closeMenu(){ $("menu").hidden = true; $("menuBtn").setAttribute("aria-expanded", "false"); }
+$("menuBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const m = $("menu"); m.hidden = !m.hidden;
+  $("menuBtn").setAttribute("aria-expanded", String(!m.hidden));
+});
+document.addEventListener("click", (e) => { if (!$("menu").hidden && !$("menu").contains(e.target)) closeMenu(); });
+$("mPractice").addEventListener("click", () => { showView("practice"); closeMenu(); });
+$("mProgress").addEventListener("click", () => { showView("progress"); closeMenu(); });
+$("mSettings").addEventListener("click", () => {
+  showView("practice"); closeMenu();
+  const s = $("settings"); s.open = true;
+  setTimeout(() => s.scrollIntoView({behavior:"smooth", block:"start"}), 50);
+});
 
 function renderOverview(){
   const body = $("subBody");
