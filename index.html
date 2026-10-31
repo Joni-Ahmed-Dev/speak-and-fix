@@ -82,7 +82,8 @@ label.f input,label.f select{background:var(--bg);border:1px solid var(--line);b
   padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
 .mic{border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:11px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;position:relative;--mic-level:0;transition:box-shadow .2s ease,transform .12s ease-out,background-color .25s ease}
 .mic[aria-pressed="true"]{background:var(--bad);color:#fff}
-.mic.live{box-shadow:0 0 0 calc(2px + var(--mic-level)*3px) color-mix(in srgb,var(--accent) 50%,transparent),0 0 calc(12px + var(--mic-level)*38px) calc(3px + var(--mic-level)*9px) color-mix(in srgb,var(--accent) 70%,transparent);transform:scale(calc(1 + var(--mic-level)*0.05))}
+.mic.live{box-shadow:0 0 calc(10px + var(--mic-level)*30px) calc(2px + var(--mic-level)*7px) var(--accent);transform:scale(calc(1 + var(--mic-level)*0.05))}
+.mic.live::before{content:"";position:absolute;inset:-5px;border-radius:999px;border:calc(1px + var(--mic-level)*2px) solid var(--accent);opacity:calc(0.3 + var(--mic-level)*0.7);pointer-events:none;transition:opacity .12s ease-out}
 .dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9;transition:transform .12s ease-out}
 .mic.live .dot{transform:scale(calc(1 + var(--mic-level)*0.9))}
 @media (prefers-reduced-motion:reduce){.mic.live{transform:none}}
