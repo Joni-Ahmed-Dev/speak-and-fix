@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Speak &amp; Fix</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b7a75">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hind+Siliguri:wght@400;500;600&display=swap">
@@ -549,8 +552,7 @@ function grammarPrompt(){
     "Return JSON. 'correct' is true only if the sentence needs no change. 'corrected' is the fixed sentence (same as input if correct). " +
     "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix, a category from the allowed list, and 'why_bn': a very short Bengali reason for that one fix. " +
     "'explanation_bn' is a short explanation in Bengali, at most two sentences, naming the rule in simple words (keep English grammar terms in English). Empty string if correct. " +
-    "'suggestions' always has two entries, even when the sentence is correct: how a fluent speaker would say the same idea. " +
-    "The first has style 'Natural' (relaxed, native-sounding) and the second has style 'Band 7' (still easy and natural to say out loud, like what a fluent speaker would comfortably say in real conversation, never a hard textbook sentence: at most one small upgrade, such as one natural linking word or one common but better word choice, no forced complex structures or rare vocabulary). Keep the meaning the same and each suggestion to one or two sentences. " +
+    "'suggestions' has exactly one entry with style 'Natural': how a fluent speaker would say the same idea, relaxed and native-sounding, easy to say out loud. Keep the meaning the same and the suggestion to one or two sentences. " +
     "'vocab' lists up to two basic words or phrases from the sentence with a natural everyday stronger alternative that is easy to use in speech, or an empty list. " +
     "'word_errors' lists words or phrases the learner used wrongly or in the wrong context (wrong word, wrong collocation, wrong meaning, a confusable word). Each has 'word' as said, 'correct_use' (the right word or phrase for this context) and 'issue_bn' (a short Bengali reason). Do not repeat what is already in 'mistakes'. Empty list if none. " +
     "'band7_bn' is one short encouraging Bengali tip with one small easy change that would make this sentence sound closer to band 7 (for example one natural linking phrase or one everyday better word), or an empty string if it is already at that level or too short to matter. " +
@@ -836,7 +838,7 @@ function onSocketClosed(ev){
 
 /* ---------- Chrome voice mode (one request per turn) ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, browserBusy = false, browserHist = [];
+let rec = null, browserBusy = false, browserHist = [], recCooldownUntil = 0, netRetries = 0;
 const COMBO_SCHEMA = (() => { const c = JSON.parse(JSON.stringify(GRAMMAR_SCHEMA)); c.properties.reply = {type:"STRING"}; c.required.push("reply"); return c; })();
 function comboPrompt(){
   return "Each request has two parts. The earlier messages are conversation context. The last user message is what the learner just said.\n\n" +
@@ -849,11 +851,12 @@ function showInterim(text){
   curMe.querySelector(".txt").textContent = text; scrollDown($("convFeed"));
 }
 function clearInterim(){ if (curMe) { curMe.remove(); curMe = null; meText = ""; } }
-function listenAgain(){ if (!active || browserBusy || usingKind !== "browser" || !rec) return; try { rec.start(); } catch(e){} }
+function listenAgain(){ if (!active || browserBusy || usingKind !== "browser" || !rec) return; if (Date.now() < recCooldownUntil) return; try { rec.start(); } catch(e){} }
 function resumeListening(){ if (!active || usingKind !== "browser") return; browserBusy = false; setStatus(t("live")); listenAgain(); }
 function startBrowser(){
   if (!SR) { stopSession(); setStatus(tx("এই ব্রাউজারে ভয়েস চলে না। Chrome ব্যবহার করুন।", "This browser has no speech recognition. Use Chrome."), true); return false; }
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  netRetries = 0; recCooldownUntil = 0;
   rec.onresult = e => {
     let interim = "", fin = "";
     for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin += r[0].transcript; else interim += r[0].transcript; }
@@ -862,7 +865,18 @@ function startBrowser(){
   };
   rec.onerror = e => {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") { stopSession(); setStatus(t("nomic"), true); }
-    else if (e.error === "network") setStatus(tx("ভয়েস চিনতে নেটওয়ার্ক সমস্যা হচ্ছে।", "Speech recognition network error."), true);
+    else if (e.error === "network") {
+      netRetries++;
+      if (netRetries <= 3) {
+        const wait = [1000, 2500, 5000][netRetries - 1];
+        recCooldownUntil = Date.now() + wait;
+        setStatus(tx("নেটওয়ার্ক সমস্যা, আবার চেষ্টা করছি…", "Network issue, retrying…"), true);
+        setTimeout(() => { if (active && usingKind === "browser" && !browserBusy) listenAgain(); }, wait + 150);
+      } else {
+        stopSession();
+        setStatus(tx("ভয়েস চিনতে নেটওয়ার্ক সমস্যা হচ্ছে। ইন্টারনেট চেক করে মাইক বাটন আবার চাপো।", "Speech recognition network error. Check your internet and tap the mic button again."), true);
+      }
+    }
   };
   rec.onend = () => { if (active && !browserBusy) setTimeout(listenAgain, 150); };
   setStatus(t("live")); listenAgain(); return true;
@@ -1262,6 +1276,11 @@ $("clearBtn").addEventListener("click", () => {
 });
 
 applyLang();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
 </script>
 </body>
 </html>
