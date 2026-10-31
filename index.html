@@ -112,6 +112,16 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
 .sess .body{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .plan{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border-radius:8px;padding:10px 12px}
 .row{display:flex;gap:8px;flex-wrap:wrap}
+.goal{display:grid;grid-template-columns:auto minmax(60px,1fr) auto;gap:10px;align-items:center;font-size:13.5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.subbody{display:flex;flex-direction:column;gap:18px;min-width:0}
+.dayhead{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.li2{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-top:1px solid var(--line)}
+.li2:first-child{border-top:0}
+.ctx{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+ul.plain{list-style:none;padding:0;margin:0}
+.flash{border:1px solid var(--accent);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:640px}
+.flash .big{font-size:18px;overflow-wrap:anywhere}
+.small{font-size:13px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -128,6 +138,7 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
   </header>
 
   <div id="viewPractice" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    <div class="goal" id="goalBar"></div>
     <details class="settings" id="settings" open>
       <summary id="t-settings">Settings</summary>
       <div class="grid">
@@ -138,6 +149,7 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
           <select id="modelKind">
             <option value="standard" id="o-std">Standard Live (longer sessions)</option>
             <option value="native" id="o-nat">Native audio (most natural)</option>
+            <option value="browser" data-bn="Chrome ভয়েস (ফ্রি, প্রতি বাক্যে ১টি রিকোয়েস্ট)" data-en="Chrome voice (free, 1 request per turn)">Chrome voice (free, 1 request per turn)</option>
           </select>
         </label>
         <label class="f" for="voice"><span id="t-voice">Voice</span>
@@ -171,6 +183,9 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
             <option value="0" data-bn="বন্ধ" data-en="Off">Off</option>
           </select>
         </label>
+        <label class="f" for="goal"><span data-bn="প্রতিদিনের লক্ষ্য (বাক্য)" data-en="Daily goal (sentences)">Daily goal (sentences)</span>
+          <select id="goal"><option value="10">10</option><option value="15" selected>15</option><option value="20">20</option><option value="30">30</option><option value="50">50</option></select>
+        </label>
         <label class="f" for="fallback"><span id="t-fallback">If native audio runs out</span>
           <select id="fallback">
             <option value="1" id="o-fb1">Switch to standard</option>
@@ -178,15 +193,15 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
           </select>
         </label>
       </div>
-      <details style="margin-top:12px">
+      <details style="margin-top:12px" open>
         <summary id="t-adv">Model names (change if Google renames them)</summary>
         <div class="grid">
-          <label class="f" for="mStd"><span>Standard Live</span><input id="mStd" spellcheck="false"></label>
-          <label class="f" for="mNat"><span>Native audio</span><input id="mNat" spellcheck="false"></label>
-          <label class="f" for="mGram"><span data-bn="গ্রামার কোচ ও রিপোর্ট (Pro চাইলে gemini-3.1-pro-preview)" data-en="Grammar coach and reports (for Pro use gemini-3.1-pro-preview)">Grammar coach</span>
-            <input id="mGram" spellcheck="false" list="gramModels">
-            <datalist id="gramModels"><option value="gemini-3.8-flash"><option value="gemini-3.1-pro-preview"><option value="gemini-4-argon"><option value="gemini-3.5-flash-lite"></datalist>
-          </label>
+          <label class="f" for="mStd"><span data-bn="স্ট্যান্ডার্ড Live মডেল" data-en="Standard Live model">Standard Live model</span>
+            <select id="mStd"></select><input id="mStdC" spellcheck="false" placeholder="model name" hidden></label>
+          <label class="f" for="mNat"><span data-bn="নেটিভ অডিও মডেল" data-en="Native audio model">Native audio model</span>
+            <select id="mNat"></select><input id="mNatC" spellcheck="false" placeholder="model name" hidden></label>
+          <label class="f" for="mGram"><span data-bn="গ্রামার কোচ ও রিপোর্ট মডেল" data-en="Grammar coach and report model">Grammar coach and report model</span>
+            <select id="mGram"></select><input id="mGramC" spellcheck="false" placeholder="model name" hidden></label>
         </div>
       </details>
       <p class="hint" id="t-hint">Your key is stored only in this browser. Use headphones so the mic does not hear the voice.</p>
@@ -231,7 +246,7 @@ mark{background:var(--bad-bg);color:var(--bad);border-radius:3px;padding:0 2px;f
 const I18N = {
   bn: {
     title:"Speak & Fix", settings:"সেটিংস", key:"Gemini API key", voicemodel:"ভয়েস মডেল", voice:"ভয়েস",
-    level:"লেভেল", topic:"বিষয়", fallback:"নেটিভ অডিওর লিমিট শেষ হলে", adv:"মডেলের নাম (Google বদলালে এখানে ঠিক করুন)",
+    level:"লেভেল", topic:"বিষয়", fallback:"নেটিভ অডিওর লিমিট শেষ হলে", adv:"মডেল বাছাই",
     hint:"আপনার key শুধু এই ব্রাউজারে থাকে। হেডফোন ব্যবহার করুন, নইলে মাইক Gemini-র কথাও শুনে ফেলবে।",
     std:"স্ট্যান্ডার্ড Live (বেশি সময় চলে)", nat:"নেটিভ অডিও (সবচেয়ে স্বাভাবিক)", fb1:"স্ট্যান্ডার্ডে চলে যাও", fb0:"থামো এবং জানাও",
     conv:"কথোপকথন", coach:"গ্রামার কোচ", listening:"চুপচাপ শুনছে",
@@ -244,7 +259,7 @@ const I18N = {
   },
   en: {
     title:"Speak & Fix", settings:"Settings", key:"Gemini API key", voicemodel:"Voice model", voice:"Voice",
-    level:"Level", topic:"Topic", fallback:"If native audio runs out", adv:"Model names (change if Google renames them)",
+    level:"Level", topic:"Topic", fallback:"If native audio runs out", adv:"Choose models",
     hint:"Your key is stored only in this browser. Use headphones so the mic does not hear the voice.",
     std:"Standard Live (longer sessions)", nat:"Native audio (most natural)", fb1:"Switch to standard", fb0:"Stop and tell me",
     conv:"Conversation", coach:"Grammar coach", listening:"Listening quietly",
@@ -266,7 +281,7 @@ const CAT_IDS = Object.keys(CAT);
 /* ---------- settings ---------- */
 const $ = id => document.getElementById(id);
 const DEFAULTS = {
-  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1", focus:"1",
+  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1", focus:"1", goal:"15",
   mStd:"gemini-3.8-live", mNat:"gemini-3.1-flash-live-preview", mGram:"gemini-3.8-flash",
   ui:"bn", theme:""
 };
@@ -277,11 +292,45 @@ if (cfg.mNat === "gemini-2.5-flash-native-audio-preview-09-2025") cfg.mNat = DEF
 if (cfg.mGram === "gemini-2.5-flash") cfg.mGram = DEFAULTS.mGram;
 function saveCfg(){ try { localStorage.setItem("speakfix", JSON.stringify(cfg)); } catch(e){} }
 
-["apiKey","modelKind","voice","level","topic","fallback","focus","mStd","mNat","mGram"].forEach(k => {
+["apiKey","modelKind","voice","level","topic","fallback","focus","goal"].forEach(k => {
   const el = $(k); el.value = cfg[k];
   if (el.value !== cfg[k] && el.tagName === "SELECT") el.selectedIndex = 0;
   const h = () => { cfg[k] = el.value.trim(); saveCfg(); };
   el.addEventListener("change", h); el.addEventListener("input", h);
+});
+
+/* model dropdowns: every model listed on Google's models page (Oct 2026), plus a custom entry */
+const LIVE_MODELS = [
+  ["gemini-3.8-live","Gemini 3.8 Live (stable)"],
+  ["gemini-3.8-live-extended-thinking","Gemini 3.8 Live Extended Thinking (stable)"],
+  ["gemini-3.1-flash-live-preview","Gemini 3.1 Flash Live (preview, legacy)"],
+  ["gemini-2.5-flash-native-audio-preview-12-2025","Gemini 2.5 Flash native audio (past users only)"]
+];
+const TEXT_MODELS = [
+  ["gemini-3.8-flash","Gemini 3.8 Flash (stable, recommended)"],
+  ["gemini-3.6-flash","Gemini 3.6 Flash (stable)"],
+  ["gemini-3.5-flash-lite","Gemini 3.5 Flash-Lite (stable, light)"],
+  ["gemini-3.1-flash-lite","Gemini 3.1 Flash-Lite (stable, light)"],
+  ["gemini-3-flash-preview","Gemini 3 Flash (preview)"],
+  ["gemini-3.1-pro-preview","Gemini 3.1 Pro (preview, deeper, slower)"],
+  ["gemini-4-argon","Gemini 4 Argon (flagship reasoning)"],
+  ["gemini-2.5-pro","Gemini 2.5 Pro (past users only)"],
+  ["gemini-2.5-flash","Gemini 2.5 Flash (past users only)"],
+  ["gemini-2.5-flash-lite","Gemini 2.5 Flash-Lite (past users only)"]
+];
+const MODEL_LISTS = {mStd:LIVE_MODELS, mNat:LIVE_MODELS, mGram:TEXT_MODELS};
+Object.keys(MODEL_LISTS).forEach(k => {
+  const sel = $(k), inp = $(k + "C"), list = MODEL_LISTS[k];
+  list.forEach(([v, l]) => sel.add(new Option(l, v)));
+  sel.add(new Option("Other (type the name)…", "__custom"));
+  if (list.some(([v]) => v === cfg[k])) sel.value = cfg[k];
+  else { sel.value = "__custom"; inp.value = cfg[k]; inp.hidden = false; }
+  sel.addEventListener("change", () => {
+    if (sel.value === "__custom") { inp.hidden = false; inp.focus(); if (inp.value.trim()) cfg[k] = inp.value.trim(); }
+    else { inp.hidden = true; cfg[k] = sel.value; }
+    saveCfg();
+  });
+  inp.addEventListener("input", () => { if (inp.value.trim()) { cfg[k] = inp.value.trim(); saveCfg(); } });
 });
 
 function t(k){ return I18N[cfg.ui][k]; }
@@ -295,6 +344,7 @@ function applyLang(){
   document.querySelectorAll("[data-bn]").forEach(el => { el.textContent = el.dataset[cfg.ui]; });
   setMicLabel();
   if (!$("viewProgress").hidden) renderProgress();
+  renderGoal();
 }
 $("langBtn").addEventListener("click", () => { cfg.ui = cfg.ui === "bn" ? "en" : "bn"; saveCfg(); applyLang(); });
 $("themeBtn").addEventListener("click", () => {
@@ -336,6 +386,7 @@ function saveHist(){
     if (hist.sessions.length > 200) hist.sessions = hist.sessions.slice(-200);
     localStorage.setItem(HKEY, JSON.stringify(hist));
   } catch(e){}
+  try { renderGoal(); } catch(e){}
 }
 let curSession = null;
 let pendingChecks = [];
@@ -409,7 +460,7 @@ function callGemini(system, user, schema, temp){
 async function callGeminiNow(system, user, schema, temp){
   const body = {
     systemInstruction:{parts:[{text:system}]},
-    contents:[{role:"user", parts:[{text:user}]}],
+    contents: Array.isArray(user) ? user : [{role:"user", parts:[{text:user}]}],
     generationConfig:{temperature: temp == null ? 0.2 : temp}
   };
   if (schema) { body.generationConfig.responseMimeType = "application/json"; body.generationConfig.responseSchema = schema; }
@@ -446,14 +497,15 @@ const GRAMMAR_SCHEMA = {
     correct:{type:"BOOLEAN"},
     corrected:{type:"STRING"},
     mistakes:{type:"ARRAY", items:{type:"OBJECT", properties:{
-      wrong:{type:"STRING"}, right:{type:"STRING"}, category:{type:"STRING", enum:CAT_IDS}
-    }, required:["wrong","right","category"]}},
+      wrong:{type:"STRING"}, right:{type:"STRING"}, category:{type:"STRING", enum:CAT_IDS}, why_bn:{type:"STRING"}
+    }, required:["wrong","right","category","why_bn"]}},
     explanation_bn:{type:"STRING"},
     suggestions:{type:"ARRAY", items:{type:"OBJECT", properties:{style:{type:"STRING"}, text:{type:"STRING"}}, required:["style","text"]}},
     vocab:{type:"ARRAY", items:{type:"OBJECT", properties:{basic:{type:"STRING"}, better:{type:"STRING"}}, required:["basic","better"]}},
-    band7_bn:{type:"STRING"}
+    band7_bn:{type:"STRING"},
+    word_errors:{type:"ARRAY", items:{type:"OBJECT", properties:{word:{type:"STRING"}, correct_use:{type:"STRING"}, issue_bn:{type:"STRING"}}, required:["word","correct_use","issue_bn"]}}
   },
-  required:["correct","corrected","mistakes","explanation_bn","suggestions","vocab","band7_bn"]
+  required:["correct","corrected","mistakes","explanation_bn","suggestions","vocab","band7_bn","word_errors"]
 };
 function grammarPrompt(){
   return "You are a kind but exact English grammar coach for a Bengali-speaking learner (level: " + cfg.level + "). " +
@@ -461,11 +513,12 @@ function grammarPrompt(){
     "The input is one spoken sentence that was transcribed automatically, so ignore punctuation, capital letters and likely transcription slips. " +
     "Judge only grammar, word choice and how natural it sounds. " +
     "Return JSON. 'correct' is true only if the sentence needs no change. 'corrected' is the fixed sentence (same as input if correct). " +
-    "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix and a category from the allowed list. " +
+    "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix, a category from the allowed list, and 'why_bn': a very short Bengali reason for that one fix. " +
     "'explanation_bn' is a short explanation in Bengali, at most two sentences, naming the rule in simple words (keep English grammar terms in English). Empty string if correct. " +
     "'suggestions' always has two entries, even when the sentence is correct: how a fluent speaker would say the same idea. " +
     "The first has style 'Natural' (relaxed, native-sounding) and the second has style 'Band 7' (more advanced, with a complex structure or less common vocabulary, still natural in speech). Keep the meaning the same and each suggestion to one or two sentences. " +
     "'vocab' lists up to two basic words or phrases from the sentence with a stronger band 7 alternative, or an empty list. " +
+    "'word_errors' lists words or phrases the learner used wrongly or in the wrong context (wrong word, wrong collocation, wrong meaning, a confusable word). Each has 'word' as said, 'correct_use' (the right word or phrase for this context) and 'issue_bn' (a short Bengali reason). Do not repeat what is already in 'mistakes'. Empty list if none. " +
     "'band7_bn' is one short Bengali tip on how this sentence could sound closer to band 7 (for example a complex sentence, a linking phrase or a less common word), or an empty string if it is already at that level or too short to matter. " +
     "If the learner spoke Bengali instead of English, set correct to false, put the English translation in 'corrected', category 'other', and explain in Bengali.";
 }
@@ -500,6 +553,8 @@ function cardHTML(orig, r){
   }
   if (r.vocab && r.vocab.length)
     html += '<div class="chips">' + r.vocab.map(v => '<span class="chip">' + esc(v.basic) + ' → <b>' + esc(v.better) + '</b></span>').join("") + '</div>';
+  if (r.word_errors && r.word_errors.length)
+    html += '<span class="tag">' + esc(tx("শব্দের ভুল ব্যবহার", "Word misuse")) + '</span>' + r.word_errors.map(w => '<div class="why"><s style="color:var(--bad)">' + esc(w.word) + '</s> → <b>' + esc(w.correct_use) + '</b>' + (w.issue_bn ? ' · ' + esc(w.issue_bn) : '') + '</div>').join("");
   if (r.band7_bn) html += '<div class="why">🎯 ' + esc(r.band7_bn) + '</div>';
   return html;
 }
@@ -734,6 +789,7 @@ function onSocketClosed(ev){
     usingKind = "standard"; resumeHandle = null;
     showNotice(t("fellback")); setStatus(t("connecting")); openSocket(); return;
   }
+  if (usingKind === "standard" && cfg.fallback === "1" && quota && SR) { switchToBrowser(); return; }
   if (!setupDone && !resumeHandle) {
     stopSession(); setStatus(t("failed") + (reason ? ": " + reason : " (code " + ev.code + ")"), true); return;
   }
@@ -744,6 +800,92 @@ function onSocketClosed(ev){
   }
 }
 
+/* ---------- Chrome voice mode (one request per turn) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, browserBusy = false, browserHist = [];
+const COMBO_SCHEMA = (() => { const c = JSON.parse(JSON.stringify(GRAMMAR_SCHEMA)); c.properties.reply = {type:"STRING"}; c.required.push("reply"); return c; })();
+function comboPrompt(){
+  return "Each request has two parts. The earlier messages are conversation context. The last user message is what the learner just said.\n\n" +
+    "PART A, coach analysis of the learner's last message only:\n" + grammarPrompt() + "\n\n" +
+    "PART B, the conversation partner. Put it in the JSON field 'reply'. " + convPrompt() +
+    " The reply is spoken aloud, so use plain sentences with no markdown, lists or emojis.";
+}
+function showInterim(text){
+  if (!curMe) { curMe = addBubble("me"); meText = ""; }
+  curMe.querySelector(".txt").textContent = text; scrollDown($("convFeed"));
+}
+function clearInterim(){ if (curMe) { curMe.remove(); curMe = null; meText = ""; } }
+function listenAgain(){ if (!active || browserBusy || usingKind !== "browser" || !rec) return; try { rec.start(); } catch(e){} }
+function resumeListening(){ if (!active || usingKind !== "browser") return; browserBusy = false; setStatus(t("live")); listenAgain(); }
+function startBrowser(){
+  if (!SR) { stopSession(); setStatus(tx("এই ব্রাউজারে ভয়েস চলে না। Chrome ব্যবহার করুন।", "This browser has no speech recognition. Use Chrome."), true); return false; }
+  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  rec.onresult = e => {
+    let interim = "", fin = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin += r[0].transcript; else interim += r[0].transcript; }
+    if (fin.trim()) { clearInterim(); browserTurn(fin.trim()); }
+    else if (interim) showInterim(interim);
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") { stopSession(); setStatus(t("nomic"), true); }
+    else if (e.error === "network") setStatus(tx("ভয়েস চিনতে নেটওয়ার্ক সমস্যা হচ্ছে।", "Speech recognition network error."), true);
+  };
+  rec.onend = () => { if (active && !browserBusy) setTimeout(listenAgain, 150); };
+  setStatus(t("live")); listenAgain(); return true;
+}
+function switchToBrowser(){
+  ws = null; stopMic(); usingKind = "browser"; browserBusy = false;
+  showNotice(tx("Live ভয়েসের সীমা শেষ। Chrome ভয়েসে চলে গেছি।", "Live voice limit reached. Switched to Chrome voice."));
+  startBrowser();
+}
+function pickVoice(){
+  const v = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(x => /^en/i.test(x.lang));
+  return v.find(x => /natural|online/i.test(x.name)) || v.find(x => /google/i.test(x.name) && /en-(US|GB)/i.test(x.lang)) || v.find(x => /en-US/i.test(x.lang)) || v[0] || null;
+}
+function speakReply(text){
+  if (!window.speechSynthesis) { resumeListening(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); const v = pickVoice();
+  if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+  u.onend = u.onerror = () => resumeListening();
+  setStatus(tx("বলছে…", "Speaking…"));
+  speechSynthesis.speak(u);
+}
+function browserTurn(sentence){
+  browserBusy = true; try { rec.abort(); } catch(e){}
+  $("coachEmpty") && $("coachEmpty").remove();
+  const me = addBubble("me"); me.classList.remove("live"); me.querySelector(".txt").textContent = sentence;
+  const ai = addBubble("ai"); ai.querySelector(".txt").textContent = "…";
+  const card = document.createElement("div"); card.className = "card";
+  card.innerHTML = '<span class="tag">' + esc(t("you")) + '</span><div class="orig">' + esc(sentence) + '</div><div class="pending">' + esc(t("checking")) + '</div>';
+  $("coachFeed").appendChild(card); scrollDown($("coachFeed"));
+  const item = {orig:sentence, at:Date.now(), r:null};
+  if (curSession) curSession.items.push(item);
+  const contents = browserHist.map(h => ({role:h.role, parts:[{text:h.text}]})).concat([{role:"user", parts:[{text:sentence}]}]);
+  setStatus(tx("ভাবছে…", "Thinking…"));
+  const p = (async () => {
+    let reply = "";
+    try {
+      const r = JSON.parse(await callGemini(comboPrompt(), contents, COMBO_SCHEMA, 0.4));
+      if (!Array.isArray(r.mistakes)) r.mistakes = [];
+      reply = String(r.reply || "").trim(); delete r.reply;
+      item.r = r; saveHist(); card.innerHTML = cardHTML(sentence, r);
+      browserHist.push({role:"user", text:sentence}, {role:"model", text:reply});
+      if (browserHist.length > 16) browserHist = browserHist.slice(-16);
+    } catch (err) {
+      const pe = card.querySelector(".pending");
+      if (pe) { pe.className = "status err"; pe.textContent = t("gramfail") + " (" + err.message + ")"; }
+    }
+    ai.classList.remove("live");
+    ai.querySelector(".txt").textContent = reply || tx("উত্তর পাওয়া যায়নি।", "No reply.");
+    scrollDown($("convFeed")); scrollDown($("coachFeed"));
+    return reply;
+  })();
+  pendingChecks.push(p);
+  p.then(reply => { if (!active) return; if (reply) speakReply(reply); else resumeListening(); });
+}
+if (window.speechSynthesis) { try { speechSynthesis.getVoices(); } catch(e){} }
+
 /* ---------- session control ---------- */
 function setMicLabel(){ $("micLabel").textContent = active ? t("stop") : t("start"); }
 function tick(){
@@ -753,8 +895,9 @@ function tick(){
 async function startSession(){
   if (!cfg.apiKey) { setStatus(t("nokey"), true); $("settings").open = true; $("apiKey").focus(); return; }
   showNotice(""); setStatus(t("connecting"));
-  try { await startMic(); } catch(e){ setStatus(t("nomic"), true); return; }
-  active = true; usingKind = cfg.modelKind; resumeHandle = null; retries = 0;
+  const kind = cfg.modelKind;
+  if (kind !== "browser") { try { await startMic(); } catch(e){ setStatus(t("nomic"), true); return; } }
+  active = true; usingKind = kind; resumeHandle = null; retries = 0;
   curSession = {id:Date.now().toString(36) + Math.random().toString(36).slice(2,6), start:Date.now(), end:0,
     level:cfg.level, topic:cfg.topic, items:[], summary:null};
   pendingChecks = [];
@@ -762,12 +905,14 @@ async function startSession(){
   $("micBtn").setAttribute("aria-pressed", "true"); setMicLabel();
   startedAt = Date.now(); tick(); timerId = setInterval(tick, 1000);
   $("settings").open = false;
-  openSocket();
+  if (kind === "browser") startBrowser(); else openSocket();
 }
 function stopSession(){
   active = false; setupDone = false;
   try { ws && ws.close(); } catch(e){}
   ws = null; stopMic(); stopPlayback(); endTurn();
+  browserBusy = false; try { rec && rec.abort(); } catch(e){} rec = null; browserHist = [];
+  try { window.speechSynthesis && speechSynthesis.cancel(); } catch(e){}
   clearInterval(timerId);
   $("micBtn").setAttribute("aria-pressed", "false"); setMicLabel();
   const sess = curSession; curSession = null;
@@ -791,8 +936,8 @@ function showView(name){
 $("tabPractice").addEventListener("click", () => showView("practice"));
 $("tabProgress").addEventListener("click", () => showView("progress"));
 
-function renderProgress(){
-  const body = $("progBody");
+function renderOverview(){
+  const body = $("subBody");
   const sessions = hist.sessions.filter(s => s.items && s.items.some(i => i.r));
   if (!sessions.length) {
     body.innerHTML = '<p class="empty" style="margin:20px auto">' + esc(tx("এখনও কোনো হিস্ট্রি নেই। একটা সেশন শেষ করলে এখানে আপনার অগ্রগতি দেখাবে।", "No history yet. Finish a session and your progress will show up here.")) + '</p>';
@@ -807,6 +952,7 @@ function renderProgress(){
   h += '<section><div class="tiles">' +
     '<div class="band"><b>' + a.sessions + '</b><span>' + esc(tx("সেশন", "Sessions")) + '</span></div>' +
     '<div class="band"><b>' + a.sentences + '</b><span>' + esc(tx("বাক্য", "Sentences")) + '</span></div>' +
+    '<div class="band"><b>' + streakInfo().streak + '</b><span>' + esc(tx("দিনের ধারা", "Day streak")) + '</span></div>' +
     '<div class="band"><b>' + acc + '%</b><span>' + esc(tx("ভুলহীন বাক্য", "Error-free")) + '</span></div>' +
     '<div class="band main"><b>' + (lastBand == null ? "–" : fmtBand(lastBand)) + '</b><span>' + esc(tx("সর্বশেষ অনুমান (লক্ষ্য ৭.০)", "Latest estimate (target 7.0)")) + '</span></div>' +
     '</div></section>';
@@ -876,11 +1022,178 @@ async function makePlan(){
   catch (err) { out.textContent = tx("প্ল্যান তৈরি হয়নি", "Plan failed") + " (" + err.message + ")"; }
 }
 
+/* ---------- days, streak, goal ---------- */
+function dayKey(ms){ const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function dayLabel(key){
+  const p = key.split("-").map(Number); const dt = new Date(p[0], p[1]-1, p[2]);
+  try { return dt.toLocaleDateString(cfg.ui === "bn" ? "bn-BD" : "en-GB", {weekday:"long", day:"numeric", month:"long", year:"numeric"}); } catch(e){ return key; }
+}
+function groupByDay(){
+  const g = {};
+  hist.sessions.forEach(s => (s.items || []).forEach(it => { if (!it.r) return; const k = dayKey(it.at || s.start); (g[k] || (g[k] = [])).push(it); }));
+  return g;
+}
+function streakInfo(){
+  const g = groupByDay(); const d = new Date();
+  const today = (g[dayKey(d.getTime())] || []).length;
+  if (!today) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (g[dayKey(d.getTime())]) { n++; d.setDate(d.getDate() - 1); }
+  return {streak:n, today:today};
+}
+function renderGoal(){
+  const el = $("goalBar"); if (!el) return;
+  const si = streakInfo(); const goal = Number(cfg.goal) || 15;
+  const pct = Math.min(100, Math.round(si.today / goal * 100));
+  el.innerHTML = '<span>' + esc(tx("আজ", "Today")) + ': <b class="num">' + si.today + '/' + goal + '</b> ' + esc(tx("বাক্য", "sentences")) + '</span>' +
+    '<div class="btrack"><div class="bfill ok" style="width:' + pct + '%"></div></div>' +
+    '<span>' + (si.streak ? esc(si.streak + tx(" দিনের ধারা", " day streak")) : esc(tx("আজ শুরু করুন", "Start today"))) + '</span>';
+}
+$("goal").addEventListener("change", renderGoal);
+
+function dayData(items){
+  const gm = {}, wd = {}, up = {};
+  items.forEach(it => {
+    const r = it.r;
+    (r.mistakes || []).forEach(m => {
+      if (!m.wrong) return;
+      const c = CAT[m.category] ? m.category : "other";
+      const store = c === "word_choice" ? wd : gm;
+      const k = (m.wrong + "|" + m.right).toLowerCase();
+      const e = store[k] || (store[k] = {wrong:m.wrong, right:m.right, cat:c, n:0, expl:"", ctx:it.orig});
+      e.n++; if (!e.expl) e.expl = m.why_bn || (c === "word_choice" ? "" : r.explanation_bn) || "";
+    });
+    (r.word_errors || []).forEach(w => {
+      if (!w.word) return;
+      const k = (w.word + "|" + w.correct_use).toLowerCase();
+      const e = wd[k] || (wd[k] = {wrong:w.word, right:w.correct_use, cat:"word_choice", n:0, expl:w.issue_bn || "", ctx:it.orig});
+      e.n++;
+    });
+    (r.vocab || []).forEach(v => { if (v && v.basic && v.better) up[v.basic.toLowerCase()] = v; });
+  });
+  const by = (a,b) => b.n - a.n;
+  return {n:items.length, ok:items.filter(i => i.r.correct).length, gm:Object.values(gm).sort(by), wd:Object.values(wd).sort(by), up:Object.values(up)};
+}
+function dayText(key, d){
+  let o = dayLabel(key) + "\n\n" + tx("গ্রামারের ভুল", "Grammar mistakes") + ":\n";
+  o += d.gm.length ? d.gm.map(e => "- " + e.wrong + " -> " + e.right + (e.expl ? " (" + e.expl + ")" : "")).join("\n") : "-";
+  o += "\n\n" + tx("শব্দের ভুল ব্যবহার", "Word misuse") + ":\n";
+  o += d.wd.length ? d.wd.map(e => "- " + e.wrong + " -> " + e.right + (e.expl ? " (" + e.expl + ")" : "")).join("\n") : "-";
+  if (d.up.length) o += "\n\n" + tx("আরও ভালো শব্দ", "Better words") + ":\n" + d.up.map(v => "- " + v.basic + " -> " + v.better).join("\n");
+  return o;
+}
+function liHTML(e){
+  return '<li class="li2"><div class="rec"><s>' + esc(e.wrong) + '</s> → <em>' + esc(e.right) + '</em><span class="chip">' + esc(catLabel(e.cat)) + '</span>' + (e.n > 1 ? '<span class="chip">×' + e.n + '</span>' : '') + '</div>' +
+    (e.expl ? '<div class="small">' + esc(e.expl) + '</div>' : '') + '<div class="ctx">“' + esc(e.ctx) + '”</div></li>';
+}
+function renderDaily(){
+  const body = $("subBody"); const g = groupByDay(); const keys = Object.keys(g).sort().reverse();
+  if (!keys.length) { body.innerHTML = '<p class="empty" style="margin:20px auto">' + esc(tx("এখনও কোনো দিনের তালিকা নেই।", "No daily lists yet.")) + '</p>'; return; }
+  const todayKey = dayKey(Date.now());
+  body.innerHTML = keys.map(k => {
+    const d = dayData(g[k]); const acc = d.n ? Math.round(d.ok / d.n * 100) : 0;
+    return '<details class="sess"' + (k === todayKey || k === keys[0] ? ' open' : '') + '><summary><span>' + esc(dayLabel(k)) + '</span><span>' + d.n + esc(tx(" বাক্য", " sentences")) + ' · ' + acc + '% · ' + (d.gm.length + d.wd.length) + esc(tx("টি ভুল", " mistakes")) + '</span></summary><div class="body">' +
+      '<div class="row"><button class="btn small copyDay" type="button" data-day="' + k + '">' + esc(tx("তালিকা কপি করুন", "Copy list")) + '</button></div>' +
+      '<h3 style="font:600 15px var(--f-display);margin:0">' + esc(tx("গ্রামারের ভুল", "Grammar mistakes")) + ' (' + d.gm.length + ')</h3>' +
+      (d.gm.length ? '<ul class="plain">' + d.gm.map(liHTML).join("") + '</ul>' : '<p class="perfect" style="margin:0">' + esc(tx("আজ কোনো গ্রামারের ভুল নেই।", "No grammar mistakes.")) + '</p>') +
+      '<h3 style="font:600 15px var(--f-display);margin:0">' + esc(tx("শব্দের ভুল ব্যবহার", "Words used wrongly")) + ' (' + d.wd.length + ')</h3>' +
+      (d.wd.length ? '<ul class="plain">' + d.wd.map(liHTML).join("") + '</ul>' : '<p class="perfect" style="margin:0">' + esc(tx("কোনো শব্দ ভুল ব্যবহার হয়নি।", "No misused words.")) + '</p>') +
+      (d.up.length ? '<h3 style="font:600 15px var(--f-display);margin:0">' + esc(tx("আরও ভালো শব্দ (Band 7)", "Better words (Band 7)")) + '</h3><div class="chips">' + d.up.map(v => '<span class="chip">' + esc(v.basic) + ' → <b>' + esc(v.better) + '</b></span>').join("") + '</div>' : '') +
+      '</div></details>';
+  }).join("");
+  body.querySelectorAll(".copyDay").forEach(b => b.addEventListener("click", async () => {
+    const k = b.dataset.day; const txt = dayText(k, dayData(groupByDay()[k]));
+    try { await navigator.clipboard.writeText(txt); b.textContent = tx("কপি হয়েছে", "Copied"); }
+    catch(e){ b.textContent = tx("কপি হয়নি", "Copy failed"); }
+  }));
+}
+
+/* ---------- review deck (spaced repetition) ---------- */
+const RKEY = "speakfix_review";
+let rv = {cards:{}};
+try { const x = JSON.parse(localStorage.getItem(RKEY) || "null"); if (x && x.cards) rv = x; } catch(e){}
+function saveRv(){ try { localStorage.setItem(RKEY, JSON.stringify(rv)); } catch(e){} }
+const INTERVAL_DAYS = [0, 1, 3, 7, 14, 30];
+let rq = {active:false, list:[], i:0, shown:false, retried:{}};
+function syncCards(){
+  let changed = false;
+  hist.sessions.forEach(s => (s.items || []).forEach(it => {
+    if (!it.r) return;
+    (it.r.mistakes || []).forEach(m => {
+      if (!m.wrong || !m.right) return;
+      const k = "g|" + (m.wrong + "|" + m.right).toLowerCase();
+      if (!rv.cards[k]) { rv.cards[k] = {wrong:m.wrong, right:m.right, cat:CAT[m.category] ? m.category : "other", ctx:it.orig, expl:m.why_bn || (m.category === "word_choice" ? "" : it.r.explanation_bn) || "", kind:m.category === "word_choice" ? "word" : "grammar", box:0, due:0}; changed = true; }
+    });
+    (it.r.word_errors || []).forEach(w => {
+      if (!w.word || !w.correct_use) return;
+      const k = "w|" + (w.word + "|" + w.correct_use).toLowerCase();
+      if (!rv.cards[k]) { rv.cards[k] = {wrong:w.word, right:w.correct_use, cat:"word_choice", ctx:it.orig, expl:w.issue_bn || "", kind:"word", box:0, due:0}; changed = true; }
+    });
+  }));
+  if (changed) saveRv();
+}
+function dueCards(){ syncCards(); const now = Date.now(); return Object.keys(rv.cards).filter(k => rv.cards[k].due <= now).sort((a,b) => rv.cards[a].due - rv.cards[b].due); }
+function gradeCard(key, good){
+  const c = rv.cards[key]; if (!c) return;
+  c.box = good ? Math.min(5, c.box + 1) : 0;
+  c.due = Date.now() + (good ? INTERVAL_DAYS[c.box] : 1) * 86400000;
+  saveRv();
+  if (!good && !rq.retried[key]) { rq.retried[key] = true; rq.list.push(key); }
+}
+function renderReview(){
+  const body = $("subBody"); const due = dueCards(); const all = Object.values(rv.cards);
+  if (!all.length) { body.innerHTML = '<p class="empty" style="margin:20px auto">' + esc(tx("রিভিউয়ের জন্য এখনও কোনো ভুল জমেনি।", "No mistakes to review yet.")) + '</p>'; return; }
+  if (!rq.active || rq.i >= rq.list.length) {
+    const done = rq.active && rq.i >= rq.list.length;
+    const mastered = all.filter(c => c.box >= 5).length;
+    body.innerHTML = '<section><h3>' + esc(tx("ভুল রিভিউ", "Review your mistakes")) + '</h3>' +
+      (done ? '<p class="perfect" style="margin:0">' + esc(tx("আজকের রিভিউ শেষ। দারুণ!", "Review done for now. Well done!")) + '</p>' : '') +
+      '<div class="tiles"><div class="band main"><b>' + due.length + '</b><span>' + esc(tx("এখন রিভিউ করার মতো", "Due now")) + '</span></div>' +
+      '<div class="band"><b>' + all.length + '</b><span>' + esc(tx("মোট কার্ড", "Total cards")) + '</span></div>' +
+      '<div class="band"><b>' + mastered + '</b><span>' + esc(tx("মনে থাকছে", "Remembered well")) + '</span></div></div>' +
+      '<p class="hint" style="margin:0">' + esc(tx("আপনার নিজের ভুলগুলো কার্ড হয়ে জমে। ঠিক উত্তর মনে থাকলে কার্ডটা ১, ৩, ৭, ১৪, ৩০ দিন পরে ফিরে আসে। ভুলে গেলে পরদিন আবার আসে।", "Your own mistakes become cards. If you remember the answer, the card returns after 1, 3, 7, 14 and 30 days. If you forget, it returns the next day.")) + '</p>' +
+      '<div class="row"><button class="btn tab" id="rvStart" type="button" aria-pressed="true"' + (due.length ? '' : ' disabled') + '>' + esc(due.length ? tx("রিভিউ শুরু (" + Math.min(20, due.length) + "টি)", "Start review (" + Math.min(20, due.length) + ")") : tx("এখন কিছু বাকি নেই", "Nothing due")) + '</button></div></section>';
+    const st = $("rvStart"); if (st) st.addEventListener("click", () => { rq = {active:true, list:due.slice(0, 20), i:0, shown:false, retried:{}}; renderReview(); });
+    return;
+  }
+  const key = rq.list[rq.i]; const c = rv.cards[key];
+  const prompt = c.kind === "word"
+    ? tx("এই শব্দটা ভুলভাবে ব্যবহার হয়েছিল। সঠিক শব্দ বা ব্যবহার কী হবে?", "This word was used wrongly. What is the correct word or use?")
+    : tx("এই বাক্যে ভুল ছিল। ঠিক অংশটা কী হবে?", "This sentence had a mistake. What is the correct form?");
+  body.innerHTML = '<section><div class="tag">' + (rq.i + 1) + ' / ' + rq.list.length + ' · ' + esc(catLabel(c.cat)) + '</div>' +
+    '<div class="flash"><div class="small">' + esc(prompt) + '</div><div class="big">' + highlight(c.ctx || c.wrong, [{wrong:c.wrong}]) + '</div>' +
+    (rq.shown
+      ? '<div class="fix">✅ ' + esc(c.right) + '</div>' + (c.expl ? '<div class="why">' + esc(c.expl) + '</div>' : '') +
+        '<div class="row"><button class="btn" id="rvGood" type="button">' + esc(tx("মনে ছিল", "I knew it")) + '</button><button class="btn danger" id="rvAgain" type="button">' + esc(tx("ভুলে গেছি", "I forgot")) + '</button></div>'
+      : '<p class="hint" style="margin:0">' + esc(tx("আগে মুখে বলে দেখুন, তারপর উত্তর দেখুন।", "Say it out loud first, then check.")) + '</p><div class="row"><button class="btn tab" id="rvShow" type="button" aria-pressed="true">' + esc(tx("উত্তর দেখুন", "Show answer")) + '</button></div>') +
+    '</div><div class="row" style="margin-top:8px"><button class="btn small" id="rvExit" type="button">' + esc(tx("বন্ধ করুন", "Stop review")) + '</button></div></section>';
+  const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
+  bind("rvShow", () => { rq.shown = true; renderReview(); });
+  bind("rvGood", () => { gradeCard(key, true); rq.i++; rq.shown = false; renderProgressTabs(); renderReview(); });
+  bind("rvAgain", () => { gradeCard(key, false); rq.i++; rq.shown = false; renderProgressTabs(); renderReview(); });
+  bind("rvExit", () => { rq.active = false; renderProgressTabs(); renderReview(); });
+}
+
+/* ---------- progress tabs ---------- */
+let progSub = "overview";
+function renderProgressTabs(){
+  const el = $("subTabs"); if (!el) return;
+  const due = dueCards().length;
+  const defs = [["overview", tx("সারসংক্ষেপ", "Overview")], ["daily", tx("প্রতিদিনের তালিকা", "Daily lists")], ["review", tx("রিভিউ", "Review") + (due ? " (" + due + ")" : "")]];
+  el.innerHTML = defs.map(d => '<button class="btn tab" type="button" data-sub="' + d[0] + '" aria-pressed="' + (progSub === d[0]) + '">' + esc(d[1]) + '</button>').join("");
+  el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { progSub = b.dataset.sub; renderProgress(); }));
+}
+function renderProgress(){
+  $("progBody").innerHTML = '<div class="row" id="subTabs"></div><div class="subbody" id="subBody"></div>';
+  renderProgressTabs();
+  if (progSub === "daily") renderDaily(); else if (progSub === "review") renderReview(); else renderOverview();
+}
+
 /* ---------- backup / restore / clear ---------- */
 function dataMsg(m){ $("dataMsg").textContent = m || ""; }
 $("exportBtn").addEventListener("click", () => {
   try {
-    const blob = new Blob([JSON.stringify(hist)], {type:"application/json"});
+    const blob = new Blob([JSON.stringify({sessions:hist.sessions, review:rv})], {type:"application/json"});
     const url = URL.createObjectURL(blob); const a = document.createElement("a");
     a.href = url; a.download = "speak-and-fix-history-" + new Date().toISOString().slice(0,10) + ".json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -895,6 +1208,8 @@ $("importFile").addEventListener("change", async e => {
     if (!data || !Array.isArray(data.sessions)) throw new Error("bad file");
     const have = new Set(hist.sessions.map(s => s.id)); let added = 0;
     data.sessions.forEach(s => { if (s && s.id && Array.isArray(s.items) && !have.has(s.id)) { hist.sessions.push(s); added++; } });
+    if (data.review && data.review.cards) Object.keys(data.review.cards).forEach(k => { if (!rv.cards[k]) rv.cards[k] = data.review.cards[k]; });
+    saveRv();
     hist.sessions.sort((x,y) => x.start - y.start); saveHist(); renderProgress();
     dataMsg(tx(added + "টি সেশন ফিরিয়ে আনা হয়েছে।", added + " sessions restored."));
   } catch(err){ dataMsg(tx("ফাইলটা পড়া যায়নি।", "Could not read that file.")); }
@@ -903,7 +1218,7 @@ $("importFile").addEventListener("change", async e => {
 let clearArmed = 0;
 $("clearBtn").addEventListener("click", () => {
   if (Date.now() - clearArmed < 4000) {
-    hist = {sessions:[]}; saveHist(); clearArmed = 0; renderProgress();
+    hist = {sessions:[]}; saveHist(); rv = {cards:{}}; saveRv(); clearArmed = 0; renderProgress();
     $("clearBtn").textContent = $("clearBtn").dataset[cfg.ui]; dataMsg(tx("সব হিস্ট্রি মুছে গেছে।", "All history deleted."));
   } else {
     clearArmed = Date.now();
