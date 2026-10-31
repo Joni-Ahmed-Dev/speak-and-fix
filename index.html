@@ -80,12 +80,12 @@ label.f input,label.f select{background:var(--bg);border:1px solid var(--line);b
 .msg.live{opacity:.75}
 .ctl{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
   padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
-.mic{border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:11px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.mic{border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:11px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;position:relative;--mic-level:0;transition:box-shadow .2s ease,transform .12s ease-out,background-color .25s ease}
 .mic[aria-pressed="true"]{background:var(--bad);color:#fff}
-.dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9}
-.mic[aria-pressed="true"] .dot{animation:pulse 1.2s ease-in-out infinite}
-@keyframes pulse{50%{transform:scale(1.5);opacity:.4}}
-@media (prefers-reduced-motion:reduce){.mic[aria-pressed="true"] .dot{animation:none}}
+.mic.live{box-shadow:0 0 0 calc(2px + var(--mic-level)*3px) color-mix(in srgb,var(--accent) 50%,transparent),0 0 calc(12px + var(--mic-level)*38px) calc(3px + var(--mic-level)*9px) color-mix(in srgb,var(--accent) 70%,transparent);transform:scale(calc(1 + var(--mic-level)*0.05))}
+.dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9;transition:transform .12s ease-out}
+.mic.live .dot{transform:scale(calc(1 + var(--mic-level)*0.9))}
+@media (prefers-reduced-motion:reduce){.mic.live{transform:none}}
 .status{font-size:13px;color:var(--muted);flex:1;min-width:140px}
 .status.err{color:var(--bad)}
 .card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--panel)}
@@ -289,7 +289,7 @@ const I18N = {
     you:"আপনি", gemini:"Gemini", perfect:"👍 একদম ঠিক আছে!", fixed:"ঠিক বাক্য", natural:"আরও স্বাভাবিক", checking:"পরীক্ষা হচ্ছে…",
     nokey:"আগে সেটিংসে Gemini API key দিন।", nomic:"মাইক ব্যবহারের অনুমতি পাওয়া যায়নি।", reconnecting:"আবার সংযোগ হচ্ছে…",
     fellback:"নেটিভ অডিও চলছে না। স্ট্যান্ডার্ড মডেলে চলে গেছি।", failed:"সংযোগ ব্যর্থ", gramfail:"গ্রামার হয়নি",
-    langBtn:"English", themeDark:"ডার্ক", themeLight:"লাইট"
+    langBtn:"English", themeDark:"ডার্ক", themeLight:"লাইট", micStart:"কথা শুরু", micStop:"থামান"
   },
   en: {
     title:"Speak & Fix", settings:"Settings", key:"Gemini API key", voicemodel:"Voice model", voice:"Voice",
@@ -302,7 +302,7 @@ const I18N = {
     you:"You", gemini:"Gemini", perfect:"👍 Perfect!", fixed:"Corrected", natural:"More natural", checking:"Checking…",
     nokey:"Add your Gemini API key in Settings first.", nomic:"Microphone permission was denied.", reconnecting:"Reconnecting…",
     fellback:"Native audio is not available right now. Switched to the standard model.", failed:"Connection failed", gramfail:"Grammar check failed",
-    langBtn:"বাংলা", themeDark:"Dark", themeLight:"Light"
+    langBtn:"বাংলা", themeDark:"Dark", themeLight:"Light", micStart:"Start Talking", micStop:"Stop Talking"
   }
 };
 const CAT = {
@@ -776,10 +776,72 @@ async function startMic(){
   };
 }
 function stopMic(){
+  vizStop(true);
   try { micNode && micNode.disconnect(); micSrc && micSrc.disconnect(); } catch(e){}
   micStream && micStream.getTracks().forEach(tr => tr.stop());
   micCtx && micCtx.close().catch(()=>{});
   micCtx = micStream = micNode = micSrc = null; pending = []; pendingLen = 0;
+}
+
+/* ---------- mic-reactive glow: driven by the real mic input ---------- */
+let vizAn = null, vizData = null, vizRaf = 0, vizLevel = 0, vizGen = 0;
+let vizOwnCtx = null, vizOwnSrc = null, vizOwnStream = null;
+async function vizStart(){
+  const gen = ++vizGen; /* invalidate any fade-out in progress */
+  if (vizRaf) return;
+  $("micBtn").classList.add("live");
+  try {
+    if (!vizAn) {
+      if (micStream && micCtx && micSrc) {
+        vizAn = micCtx.createAnalyser();
+        micSrc.connect(vizAn);
+      } else {
+        vizOwnCtx = new (window.AudioContext || window.webkitAudioContext)();
+        vizOwnStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+        if (gen !== vizGen) throw 0;
+        vizOwnSrc = vizOwnCtx.createMediaStreamSource(vizOwnStream);
+        vizAn = vizOwnCtx.createAnalyser();
+        vizOwnSrc.connect(vizAn);
+      }
+      vizAn.fftSize = 512;
+      vizAn.smoothingTimeConstant = 0.45;
+      vizData = new Uint8Array(vizAn.fftSize);
+      try { if (vizAn.context.state === "suspended") await vizAn.context.resume(); } catch(e){}
+      if (gen !== vizGen) throw 0;
+    }
+    vizTick();
+  } catch(e){ $("micBtn").classList.remove("live"); vizCleanup(); }
+}
+function vizTick(){
+  if (!vizAn) return;
+  vizAn.getByteTimeDomainData(vizData);
+  let sum = 0;
+  for (let i = 0; i < vizData.length; i++){ const v = (vizData[i] - 128) / 128; sum += v * v; }
+  const target = Math.min(1, Math.sqrt(sum / vizData.length) * 3.5);
+  vizLevel += (target - vizLevel) * (target > vizLevel ? 0.45 : 0.2);
+  $("micBtn").style.setProperty("--mic-level", vizLevel.toFixed(3));
+  vizRaf = requestAnimationFrame(vizTick);
+}
+function vizStop(hard){
+  const gen = ++vizGen;
+  if (vizRaf){ cancelAnimationFrame(vizRaf); vizRaf = 0; }
+  const btn = $("micBtn");
+  if (hard){ vizLevel = 0; btn.style.setProperty("--mic-level", "0"); btn.classList.remove("live"); vizCleanup(); return; }
+  const fade = () => {
+    if (gen !== vizGen) return;
+    vizLevel *= 0.78;
+    btn.style.setProperty("--mic-level", vizLevel.toFixed(3));
+    if (vizLevel > 0.015) requestAnimationFrame(fade);
+    else { btn.style.setProperty("--mic-level", "0"); btn.classList.remove("live"); vizCleanup(); }
+  };
+  fade();
+}
+function vizCleanup(){
+  try { vizAn && vizAn.disconnect(); } catch(e){}
+  try { vizOwnSrc && vizOwnSrc.disconnect(); } catch(e){}
+  try { vizOwnStream && vizOwnStream.getTracks().forEach(tr => tr.stop()); } catch(e){}
+  try { vizOwnCtx && vizOwnCtx.close(); } catch(e){}
+  vizAn = vizData = null; vizOwnCtx = vizOwnSrc = vizOwnStream = null; vizLevel = 0;
 }
 
 /* ---------- audio: playback ---------- */
@@ -925,7 +987,7 @@ function startBrowser(){
     }
   };
   rec.onend = () => { if (active && !browserBusy) setTimeout(listenAgain, 150); };
-  setStatus(t("live")); listenAgain(); return true;
+  setStatus(t("live")); listenAgain(); vizStart(); return true;
 }
 function switchToBrowser(){
   ws = null; stopMic(); usingKind = "browser"; browserBusy = false;
@@ -1013,11 +1075,12 @@ function audBegin(){
   try { window.speechSynthesis && speechSynthesis.cancel(); } catch(e){}
   audChunks = []; audLen = 0; audRec = true; audT0 = Date.now();
   $("micBtn").setAttribute("aria-pressed","true"); setMicLabel();
-  setStatus(tx("রেকর্ড হচ্ছে… শেষ হলে “পাঠান” চাপুন।", "Recording… tap Send when you finish."));
+  setStatus(tx("রেকর্ড হচ্ছে… শেষ হলে “থামান” চাপুন।", "Recording… tap Stop Talking when you finish."));
   clearTimeout(audCap); audCap = setTimeout(() => { if (audRec) audSend(); }, 150000);
+  vizStart();
 }
 function audSend(){
-  audRec = false; clearTimeout(audCap);
+  audRec = false; clearTimeout(audCap); vizStop();
   $("micBtn").setAttribute("aria-pressed","false");
   if (audLen < 8000) { audChunks = []; audLen = 0; setMicLabel(); setStatus(tx("খুব ছোট রেকর্ড, আবার বলুন।", "Too short, please try again.")); return; }
   const all = new Float32Array(audLen); let o = 0;
@@ -1026,13 +1089,13 @@ function audSend(){
   audioTurn(wavB64(all));
 }
 function audStop(){
-  audRec = false; clearTimeout(audCap); audChunks = []; audLen = 0;
+  audRec = false; clearTimeout(audCap); audChunks = []; audLen = 0; vizStop();
   $("micBtn").setAttribute("aria-pressed","false"); setMicLabel();
-  setStatus(tx("আপনার পালা। “বলুন” চাপুন।", "Your turn. Tap Speak."));
+  setStatus(tx("আপনার পালা। “কথা শুরু” চাপুন।", "Your turn. Tap Start Talking."));
 }
 function audioToggle(){ if (audBusy) return; audRec ? audSend() : audBegin(); }
 function speakAudio(text){
-  const done = () => { if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “বলুন” চাপুন।", "Your turn. Tap Speak.")); };
+  const done = () => { if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “কথা শুরু” চাপুন।", "Your turn. Tap Start Talking.")); };
   if (!window.speechSynthesis) { done(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text); const v = pickVoice();
@@ -1102,7 +1165,8 @@ function setMicLabel(){
   const aud = active && usingKind === "audio";
   $("endBtn").hidden = !aud;
   $("stopRecBtn").hidden = !(aud && audRec);
-  $("micLabel").textContent = aud ? (audRec ? tx("পাঠান", "Send") : audBusy ? tx("অপেক্ষা করুন…", "Please wait…") : tx("বলুন", "Speak")) : (active ? t("stop") : t("start"));
+  const talking = active && (usingKind !== "audio" || audRec);
+  $("micLabel").textContent = audBusy ? tx("অপেক্ষা করুন…", "Please wait…") : (talking ? t("micStop") : t("micStart"));
 }
 function tick(){
   const s = Math.floor((Date.now() - startedAt) / 1000);
@@ -1113,6 +1177,7 @@ async function startSession(){
   showNotice(""); setStatus(t("connecting"));
   const kind = cfg.modelKind;
   if (kind !== "browser") { try { await startMic(); } catch(e){ setStatus(t("nomic"), true); return; } }
+  if (kind !== "browser" && kind !== "audio") vizStart();
   active = true; usingKind = kind; resumeHandle = null; retries = 0;
   curSession = {id:Date.now().toString(36) + Math.random().toString(36).slice(2,6), start:Date.now(), end:0,
     level:cfg.level, topic:cfg.topic, items:[], summary:null};

@@ -1,4 +1,4 @@
-const CACHE = "speak-and-fix-v6";
+const CACHE = "speak-and-fix-v7";
 const BASE = "/speak-and-fix/";
 const ASSETS = [BASE, BASE + "index.html", BASE + "manifest.webmanifest", BASE + "icon-192.png", BASE + "icon-512.png"];
 
