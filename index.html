@@ -41,6 +41,8 @@ h1{font:700 22px/1.1 var(--f-display);margin:0;letter-spacing:-.01em}
 .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button,select,input{font:inherit;color:inherit}
 .btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.expandBtn{background:transparent;border:1px solid var(--line);border-radius:999px;padding:4px 14px;margin:0 0 8px;cursor:pointer;font-size:13px;color:var(--muted)}
+.expandBtn:hover{color:var(--fg)}
 .btn:hover{border-color:var(--accent)}
 .btn.tab[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .btn.danger{color:var(--bad)}
@@ -212,6 +214,7 @@ ul.plain{list-style:none;padding:0;margin:0}
     <main class="panels">
       <section class="panel" aria-labelledby="h-conv">
         <div class="ph"><h2 id="h-conv">Conversation</h2><small id="timer">00:00</small></div>
+        <button class="expandBtn" id="convExpand" type="button" hidden></button>
         <div class="feed" id="convFeed" aria-live="polite"><p class="empty" id="convEmpty">Press the mic and start talking.</p></div>
         <div class="ctl">
           <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
@@ -221,6 +224,7 @@ ul.plain{list-style:none;padding:0;margin:0}
 
       <section class="panel" aria-labelledby="h-coach">
         <div class="ph"><h2 id="h-coach">Grammar coach</h2><small id="t-listening">Listening quietly</small></div>
+        <button class="expandBtn" id="coachExpand" type="button" hidden></button>
         <div class="feed" id="coachFeed" aria-live="polite"><p class="empty" id="coachEmpty">Each sentence you say is checked here.</p></div>
       </section>
     </main>
@@ -344,6 +348,7 @@ function applyLang(){
   document.querySelectorAll("[data-bn]").forEach(el => { el.textContent = el.dataset[cfg.ui]; });
   setMicLabel();
   if (!$("viewProgress").hidden) renderProgress();
+  collapseFeed("convFeed","convExpand"); collapseFeed("coachFeed","coachExpand");
   renderGoal();
 }
 $("langBtn").addEventListener("click", () => { cfg.ui = cfg.ui === "bn" ? "en" : "bn"; saveCfg(); applyLang(); });
@@ -427,6 +432,35 @@ function addBubble(kind){
   return d;
 }
 function scrollDown(el){ el.scrollTop = el.scrollHeight; }
+
+/* ---------- show only the latest feed item, older ones under Expand ---------- */
+function collapseFeed(feedId, btnId){
+  const feed = $(feedId), btn = $(btnId);
+  if (!feed || !btn) return;
+  const items = [...feed.children].filter(el => !el.classList.contains("empty"));
+  const n = items.length, expanded = feed.dataset.expanded === "1";
+  if (n > 1 && !expanded){
+    items.slice(0, -1).forEach(el => { el.style.display = "none"; });
+    items[n-1].style.display = "";
+    btn.hidden = false;
+    btn.innerHTML = "&#9662; " + esc(tx("আগেরগুলো দেখো", "Show earlier")) + " (" + (n - 1) + ")";
+  } else {
+    items.forEach(el => { el.style.display = ""; });
+    btn.hidden = n <= 1;
+    if (n > 1) btn.innerHTML = "&#9652; " + esc(tx("লুকাও", "Hide"));
+  }
+}
+function setupExpand(feedId, btnId){
+  const btn = $(btnId), feed = $(feedId);
+  if (!btn || !feed) return;
+  btn.addEventListener("click", () => {
+    feed.dataset.expanded = feed.dataset.expanded === "1" ? "" : "1";
+    collapseFeed(feedId, btnId);
+  });
+  new MutationObserver(() => collapseFeed(feedId, btnId)).observe(feed, {childList:true});
+}
+setupExpand("convFeed", "convExpand");
+setupExpand("coachFeed", "coachExpand");
 function appendMe(text){
   if (!curMe) { curMe = addBubble("me"); meText = ""; }
   meText += text; curMe.querySelector(".txt").textContent = meText; scrollDown($("convFeed"));
