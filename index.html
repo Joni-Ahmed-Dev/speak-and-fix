@@ -150,8 +150,12 @@ ul.plain{list-style:none;padding:0;margin:0}
         <label class="f" for="apiKey"><span id="t-key">Gemini API key</span>
           <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza...">
         </label>
+        <label class="f" for="apiKey2"><span data-bn="কোচের জন্য আলাদা API key (ঐচ্ছিক, ফাঁকা থাকলে উপরের key)" data-en="Separate coach API key (optional, empty = same key)">Separate coach API key</span>
+          <input id="apiKey2" type="password" autocomplete="off" spellcheck="false" placeholder="AIza...">
+        </label>
         <label class="f" for="modelKind"><span id="t-voicemodel">Voice model</span>
           <select id="modelKind">
+            <option value="audio" data-bn="রেকর্ড মোড (Gemini আপনার কণ্ঠ শুনে উচ্চারণসহ কোচিং দেয়)" data-en="Voice recording (Gemini hears you, coaches pronunciation too)">Voice recording</option>
             <option value="standard" id="o-std">Standard Live (longer sessions)</option>
             <option value="native" id="o-nat">Native audio (most natural)</option>
             <option value="browser" data-bn="Chrome ভয়েস (ফ্রি, প্রতি বাক্যে ১টি রিকোয়েস্ট)" data-en="Chrome voice (free, 1 request per turn)">Chrome voice (free, 1 request per turn)</option>
@@ -221,6 +225,7 @@ ul.plain{list-style:none;padding:0;margin:0}
         <div class="feed" id="convFeed" aria-live="polite"><p class="empty" id="convEmpty">Press the mic and start talking.</p></div>
         <div class="ctl">
           <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
+          <button class="btn" id="endBtn" type="button" hidden data-bn="সেশন শেষ" data-en="End session">End session</button>
           <span class="status" id="status"></span>
         </div>
       </section>
@@ -288,7 +293,7 @@ const CAT_IDS = Object.keys(CAT);
 /* ---------- settings ---------- */
 const $ = id => document.getElementById(id);
 const DEFAULTS = {
-  apiKey:"", modelKind:"standard", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1", focus:"1", goal:"15",
+  apiKey:"", apiKey2:"", modelKind:"audio", voice:"Puck", level:"Intermediate", topic:"everyday conversation", fallback:"1", focus:"1", goal:"15",
   mStd:"gemini-3.8-live", mNat:"gemini-3.1-flash-live-preview", mGram:"gemini-3.8-flash",
   ui:"bn", theme:""
 };
@@ -299,7 +304,7 @@ if (cfg.mNat === "gemini-2.5-flash-native-audio-preview-09-2025") cfg.mNat = DEF
 if (cfg.mGram === "gemini-2.5-flash") cfg.mGram = DEFAULTS.mGram;
 function saveCfg(){ try { localStorage.setItem("speakfix", JSON.stringify(cfg)); } catch(e){} }
 
-["apiKey","modelKind","voice","level","topic","fallback","focus","goal"].forEach(k => {
+["apiKey","apiKey2","modelKind","voice","level","topic","fallback","focus","goal"].forEach(k => {
   const el = $(k); el.value = cfg[k];
   if (el.value !== cfg[k] && el.tagName === "SELECT") el.selectedIndex = 0;
   const h = () => { cfg[k] = el.value.trim(); saveCfg(); };
@@ -488,13 +493,14 @@ function endTurn(){
 /* ---------- Gemini text calls (grammar, report, plan) ---------- */
 const FALLBACK_TEXT_MODEL = "gemini-3.5-flash-lite";
 let apiQueue = Promise.resolve();
-function callGemini(system, user, schema, temp){
-  const run = () => callGeminiNow(system, user, schema, temp);
+function callGemini(system, user, schema, temp, key){
+  /* queued calls (coach, report, plan) use the coach key if one is set */
+  const run = () => callGeminiNow(system, user, schema, temp, key || cfg.apiKey2 || cfg.apiKey);
   const p = apiQueue.then(run, run);
   apiQueue = p.catch(() => {});
   return p;
 }
-async function callGeminiNow(system, user, schema, temp){
+async function callGeminiNow(system, user, schema, temp, key){
   const body = {
     systemInstruction:{parts:[{text:system}]},
     contents: Array.isArray(user) ? user : [{role:"user", parts:[{text:user}]}],
@@ -510,7 +516,7 @@ async function callGeminiNow(system, user, schema, temp){
     for (let attempt = 0; attempt < waits.length; attempt++) {
       if (waits[attempt]) await sleep(waits[attempt]);
       let res;
-      try { res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey}, body:JSON.stringify(body)}); }
+      try { res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":key || cfg.apiKey}, body:JSON.stringify(body)}); }
       catch (e) { lastErr = "network error"; continue; }
       if (res.ok) {
         const data = await res.json();
@@ -592,6 +598,12 @@ function cardHTML(orig, r){
   if (r.word_errors && r.word_errors.length)
     html += '<span class="tag">' + esc(tx("শব্দের ভুল ব্যবহার", "Word misuse")) + '</span>' + r.word_errors.map(w => '<div class="why"><s style="color:var(--bad)">' + esc(w.word) + '</s> → <b>' + esc(w.correct_use) + '</b>' + (w.issue_bn ? ' · ' + esc(w.issue_bn) : '') + '</div>').join("");
   if (r.band7_bn) html += '<div class="why">🎯 ' + esc(r.band7_bn) + '</div>';
+  if (r.pron_score > 0 || (r.pron_issues && r.pron_issues.length) || r.fluency_bn) {
+    html += '<span class="tag">' + esc(tx("উচ্চারণ ও ফ্লুয়েন্সি (অডিও থেকে, অনুমান)", "Pronunciation & fluency (from audio, estimate)")) + '</span>';
+    if (r.pron_score > 0) html += '<div class="chips"><span class="chip">' + esc(tx("উচ্চারণ", "Pronunciation")) + ' ' + fmtBand(r.pron_score) + '</span></div>';
+    (r.pron_issues || []).forEach(p => { html += '<div class="why"><b>' + esc(p.word) + '</b> · ' + esc(p.tip_bn) + '</div>'; });
+    if (r.fluency_bn) html += '<div class="why">' + esc(r.fluency_bn) + '</div>';
+  }
   return html;
 }
 function checkGrammar(sentence){
@@ -667,6 +679,8 @@ async function makeReport(sess){
     const clamp = n => Math.max(0, Math.min(9, halfBand(Number(n) || 0)));
     s.fluency = clamp(s.fluency); s.lexical = clamp(s.lexical); s.grammar = clamp(s.grammar);
     s.overall = halfBand((s.fluency + s.lexical + s.grammar) / 3);
+    const ps = done.map(i => Number(i.r.pron_score)).filter(n => n > 0);
+    if (ps.length) { s.pron = clamp(ps.reduce((a,b) => a + b, 0) / ps.length); s.overall = halfBand((s.fluency + s.lexical + s.grammar + s.pron) / 4); }
     sess.summary = s; saveHist();
     card.innerHTML = reportHTML(s);
   } catch (err) {
@@ -677,8 +691,8 @@ async function makeReport(sess){
 function reportHTML(s){
   const b = (label, v, main) => '<div class="band' + (main ? " main" : "") + '"><b>' + fmtBand(v) + '</b><span>' + esc(label) + '</span></div>';
   let h = '<h4>' + esc(tx("IELTS Speaking অনুমান (লক্ষ্য ৭.০)", "IELTS Speaking estimate (target 7.0)")) + '</h4>';
-  h += '<div class="bands">' + b(tx("Fluency & Coherence", "Fluency & Coherence"), s.fluency) + b("Lexical Resource", s.lexical) + b("Grammar", s.grammar) + b(tx("গড় (৩টি)", "Average (3 of 4)"), s.overall, true) + '</div>';
-  h += '<div class="pending">' + esc(tx("Pronunciation লেখা থেকে মাপা যায় না, তাই ধরা হয়নি। এটা শুধু অনুমান, আসল পরীক্ষার ফল নয়।", "Pronunciation can't be judged from text, so it is not scored. This is a rough estimate, not an exam result.")) + '</div>';
+  h += '<div class="bands">' + b(tx("Fluency & Coherence", "Fluency & Coherence"), s.fluency) + b("Lexical Resource", s.lexical) + b("Grammar", s.grammar) + (s.pron ? b(tx("Pronunciation (অনুমান)", "Pronunciation (est.)"), s.pron) : "") + b(s.pron ? tx("গড় (৪টি)", "Average (4)") : tx("গড় (৩টি)", "Average (3 of 4)"), s.overall, true) + '</div>';
+  if (!s.pron) h += '<div class="pending">' + esc(tx("Pronunciation লেখা থেকে মাপা যায় না, তাই ধরা হয়নি। এটা শুধু অনুমান, আসল পরীক্ষার ফল নয়।", "Pronunciation can't be judged from text, so it is not scored. This is a rough estimate, not an exam result.")) + '</div>';
   if (s.reliability_bn) h += '<div class="why">' + esc(s.reliability_bn) + '</div>';
   if (s.gap_to_7_bn) h += '<span class="tag">' + esc(tx("৭.০ থেকে দূরত্ব", "Gap to 7.0")) + '</span><div class="why">' + esc(s.gap_to_7_bn) + '</div>';
   if (s.strengths_bn) h += '<span class="tag">' + esc(tx("ভালো দিক", "Strengths")) + '</span><div class="fix">' + esc(s.strengths_bn) + '</div>';
@@ -718,6 +732,10 @@ async function startMic(){
   muteGain = micCtx.createGain(); muteGain.gain.value = 0;
   micSrc.connect(micNode); micNode.connect(muteGain); muteGain.connect(micCtx.destination);
   micNode.port.onmessage = e => {
+    if (usingKind === "audio") {
+      if (audRec) { const f = downsample(e.data, micCtx.sampleRate, 16000); audChunks.push(f); audLen += f.length; }
+      return;
+    }
     if (!ws || ws.readyState !== 1 || !setupDone) return;
     const f = downsample(e.data, micCtx.sampleRate, 16000);
     pending.push(f); pendingLen += f.length;
@@ -825,7 +843,7 @@ function onSocketClosed(ev){
     usingKind = "standard"; resumeHandle = null;
     showNotice(t("fellback")); setStatus(t("connecting")); openSocket(); return;
   }
-  if (usingKind === "standard" && cfg.fallback === "1" && quota && SR) { switchToBrowser(); return; }
+  if (usingKind === "standard" && cfg.fallback === "1" && quota) { switchToAudio(); return; }
   if (!setupDone && !resumeHandle) {
     stopSession(); setStatus(t("failed") + (reason ? ": " + reason : " (code " + ev.code + ")"), true); return;
   }
@@ -914,7 +932,7 @@ function browserTurn(sentence){
   const p = (async () => {
     let reply = "";
     try {
-      const r = JSON.parse(await callGemini(comboPrompt(), contents, COMBO_SCHEMA, 0.4));
+      const r = JSON.parse(await callGemini(comboPrompt(), contents, COMBO_SCHEMA, 0.4, cfg.apiKey));
       if (!Array.isArray(r.mistakes)) r.mistakes = [];
       reply = String(r.reply || "").trim(); delete r.reply;
       item.r = r; saveHist(); card.innerHTML = cardHTML(sentence, r);
@@ -934,8 +952,124 @@ function browserTurn(sentence){
 }
 if (window.speechSynthesis) { try { speechSynthesis.getVoices(); } catch(e){} }
 
+/* ---------- Voice recording mode: record a turn, send the audio to Gemini ---------- */
+let audRec = false, audBusy = false, audChunks = [], audLen = 0, audT0 = 0, audCap = null;
+function wavB64(f32){
+  const pcm = floatToPcm16(f32), n = pcm.byteLength, h = new DataView(new ArrayBuffer(44));
+  const w = (o, str) => { for (let i=0;i<str.length;i++) h.setUint8(o+i, str.charCodeAt(i)); };
+  w(0,"RIFF"); h.setUint32(4,36+n,true); w(8,"WAVEfmt "); h.setUint32(16,16,true); h.setUint16(20,1,true); h.setUint16(22,1,true);
+  h.setUint32(24,16000,true); h.setUint32(28,32000,true); h.setUint16(32,2,true); h.setUint16(34,16,true); w(36,"data"); h.setUint32(40,n,true);
+  const out = new Uint8Array(44+n); out.set(new Uint8Array(h.buffer),0); out.set(new Uint8Array(pcm.buffer),44);
+  return b64FromBytes(out);
+}
+const AUDIO_EXTRA = {
+  heard:{type:"STRING"}, fluency_bn:{type:"STRING"}, pron_score:{type:"NUMBER"},
+  pron_issues:{type:"ARRAY", items:{type:"OBJECT", properties:{word:{type:"STRING"}, tip_bn:{type:"STRING"}}, required:["word","tip_bn"]}}
+};
+const AUDIO_COACH_SCHEMA = (() => { const c = JSON.parse(JSON.stringify(GRAMMAR_SCHEMA)); Object.assign(c.properties, AUDIO_EXTRA); c.required.push("heard","fluency_bn","pron_score","pron_issues"); return c; })();
+const REPLY_SCHEMA = {type:"OBJECT", properties:{heard:{type:"STRING"}, reply:{type:"STRING"}}, required:["heard","reply"]};
+function audioReplyPrompt(){
+  return convPrompt() + " The last user message is an audio recording of the learner. Return JSON: 'heard' is exactly what the learner said, word for word, without correcting it; " +
+    "'reply' is your spoken reply. The reply is spoken aloud, so use plain sentences with no markdown, lists or emojis.";
+}
+function audioCoachPrompt(){
+  return "You are a kind but exact English speaking coach for a Bengali-speaking learner (level: " + cfg.level + "). The input is an AUDIO recording of the learner answering a question; the text part gives the question. Work from what you actually hear.\n\n" +
+    "'heard': transcribe exactly what was said, word for word, keeping grammar mistakes, repeated words, restarts and fillers (um, uh). Do not correct this field. Empty string if there is no clear speech.\n\n" +
+    "Grammar part: the sentence to analyse is your own 'heard' transcript (it may be several sentences, treat it as one answer, and every 'wrong' must be copied exactly from 'heard').\n" + grammarPrompt() + "\n\n" +
+    "Pronunciation and fluency, judged from the audio itself, not from the text: 'pron_issues' lists up to three words that sounded clearly mispronounced or stressed wrongly, each with 'tip_bn', a short Bengali tip on how to say it (you may show the sound with simple English spelling); empty list if none. " +
+    "'pron_score' is a rough IELTS-style pronunciation band from 0 to 9 in half steps (0 if the audio is too short to judge). " +
+    "'fluency_bn' is one or two Bengali sentences about pauses, fillers, restarts, speed and sentence length that you actually heard. Be honest that this is an estimate.";
+}
+function audBegin(){
+  if (!micCtx || audBusy) return;
+  try { window.speechSynthesis && speechSynthesis.cancel(); } catch(e){}
+  audChunks = []; audLen = 0; audRec = true; audT0 = Date.now();
+  $("micBtn").setAttribute("aria-pressed","true"); setMicLabel();
+  setStatus(tx("রেকর্ড হচ্ছে… শেষ হলে “পাঠান” চাপুন।", "Recording… tap Send when you finish."));
+  clearTimeout(audCap); audCap = setTimeout(() => { if (audRec) audSend(); }, 150000);
+}
+function audSend(){
+  audRec = false; clearTimeout(audCap);
+  $("micBtn").setAttribute("aria-pressed","false");
+  if (audLen < 8000) { audChunks = []; audLen = 0; setMicLabel(); setStatus(tx("খুব ছোট রেকর্ড, আবার বলুন।", "Too short, please try again.")); return; }
+  const all = new Float32Array(audLen); let o = 0;
+  audChunks.forEach(c => { all.set(c, o); o += c.length; });
+  audChunks = []; audLen = 0;
+  audioTurn(wavB64(all));
+}
+function audioToggle(){ if (audBusy) return; audRec ? audSend() : audBegin(); }
+function speakAudio(text){
+  const done = () => { if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “বলুন” চাপুন।", "Your turn. Tap Speak.")); };
+  if (!window.speechSynthesis) { done(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); const v = pickVoice();
+  if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+  u.onend = u.onerror = done;
+  setStatus(tx("বলছে…", "Speaking…"));
+  speechSynthesis.speak(u);
+}
+async function audioOpen(){
+  audBusy = true; setMicLabel(); setStatus(t("connecting"));
+  const ai = addBubble("ai"); ai.querySelector(".txt").textContent = "…";
+  let op = "";
+  try { op = (await callGeminiNow(convPrompt() + " Start the conversation now with one friendly opening question. Plain sentences, no markdown, lists or emojis.", "Begin.", null, 0.7)).trim(); }
+  catch (err) { setStatus(t("failed") + " (" + err.message + ")", true); }
+  ai.classList.remove("live"); ai.querySelector(".txt").textContent = op || "—";
+  audBusy = false; if (!active) return; setMicLabel();
+  if (op) { browserHist = [{role:"user", text:"(Start the conversation.)"}, {role:"model", text:op}]; speakAudio(op); }
+}
+function audioTurn(b64){
+  audBusy = true; setMicLabel(); setStatus(tx("শুনছে…", "Listening…"));
+  $("coachEmpty") && $("coachEmpty").remove();
+  const sess = curSession, last = (browserHist.filter(h => h.role === "model").pop() || {}).text || "";
+  const aud = {inlineData:{mimeType:"audio/wav", data:b64}};
+  const me = addBubble("me"); me.classList.remove("live"); me.querySelector(".txt").textContent = "🎙 …";
+  const ai = addBubble("ai"); ai.querySelector(".txt").textContent = "…";
+  const card = document.createElement("div"); card.className = "card";
+  card.innerHTML = '<span class="tag">' + esc(t("you")) + '</span><div class="pending">' + esc(t("checking")) + '</div>';
+  $("coachFeed").appendChild(card); scrollDown($("coachFeed"));
+  const item = {orig:"", at:Date.now(), r:null}; if (sess) sess.items.push(item);
+  const ctx = browserHist.map(h => ({role:h.role, parts:[{text:h.text}]})).concat([{role:"user", parts:[aud, {text:"(The learner's spoken answer is the audio above.)"}]}]);
+  /* coach and partner run at the same time, so the spoken reply does not wait for the long feedback */
+  pendingChecks.push((async () => {
+    try {
+      const r = JSON.parse(await callGemini(audioCoachPrompt(), [{role:"user", parts:[aud, {text:"The partner's last question was: " + last}]}], AUDIO_COACH_SCHEMA, 0.2));
+      if (!Array.isArray(r.mistakes)) r.mistakes = [];
+      const heard = String(r.heard || "").trim();
+      if (!heard) throw new Error(tx("স্পষ্ট কথা শোনা যায়নি", "no clear speech heard"));
+      delete r.heard; item.orig = heard; item.r = r; saveHist(); card.innerHTML = cardHTML(heard, r);
+    } catch (err) {
+      const pe = card.querySelector(".pending"); if (pe) { pe.className = "status err"; pe.textContent = t("gramfail") + " (" + err.message + ")"; }
+      if (sess) sess.items = sess.items.filter(i => i !== item);
+    }
+    scrollDown($("coachFeed"));
+  })());
+  (async () => {
+    let reply = "";
+    try {
+      const r = JSON.parse(await callGeminiNow(audioReplyPrompt(), ctx, REPLY_SCHEMA, 0.5));
+      const heard = String(r.heard || "").trim(); reply = String(r.reply || "").trim();
+      me.querySelector(".txt").textContent = heard || "—";
+      if (heard && reply) { browserHist.push({role:"user", text:heard}, {role:"model", text:reply}); if (browserHist.length > 16) browserHist = browserHist.slice(-16); }
+    } catch (err) { me.querySelector(".txt").textContent = "—"; setStatus(t("failed") + " (" + err.message + ")", true); }
+    ai.classList.remove("live"); ai.querySelector(".txt").textContent = reply || tx("উত্তর পাওয়া যায়নি।", "No reply.");
+    scrollDown($("convFeed"));
+    audBusy = false; if (!active) return; setMicLabel(); if (reply) speakAudio(reply);
+  })();
+}
+function switchToAudio(){
+  const old = ws; ws = null; try { old && old.close(); } catch(e){}
+  usingKind = "audio"; audBusy = false; audRec = false; setupDone = false;
+  showNotice(tx("Live ভয়েসের সীমা শেষ। রেকর্ড মোডে চলে গেছি।", "Live voice limit reached. Switched to recording mode."));
+  $("micBtn").setAttribute("aria-pressed","false"); setMicLabel(); audioOpen();
+}
+
 /* ---------- session control ---------- */
-function setMicLabel(){ $("micLabel").textContent = active ? t("stop") : t("start"); }
+function setMicLabel(){
+  const aud = active && usingKind === "audio";
+  $("endBtn").hidden = !aud;
+  $("micLabel").textContent = aud ? (audRec ? tx("পাঠান", "Send") : audBusy ? tx("অপেক্ষা করুন…", "Please wait…") : tx("বলুন", "Speak")) : (active ? t("stop") : t("start"));
+}
 function tick(){
   const s = Math.floor((Date.now() - startedAt) / 1000);
   $("timer").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
@@ -950,16 +1084,17 @@ async function startSession(){
     level:cfg.level, topic:cfg.topic, items:[], summary:null};
   pendingChecks = [];
   hist.sessions.push(curSession);
-  $("micBtn").setAttribute("aria-pressed", "true"); setMicLabel();
+  $("micBtn").setAttribute("aria-pressed", String(kind !== "audio")); setMicLabel();
   startedAt = Date.now(); tick(); timerId = setInterval(tick, 1000);
   $("settings").open = false;
-  if (kind === "browser") startBrowser(); else openSocket();
+  if (kind === "browser") startBrowser(); else if (kind === "audio") audioOpen(); else openSocket();
 }
 function stopSession(){
   active = false; setupDone = false;
   try { ws && ws.close(); } catch(e){}
   ws = null; stopMic(); stopPlayback(); endTurn();
   browserBusy = false; try { rec && rec.abort(); } catch(e){} rec = null; browserHist = [];
+  clearTimeout(audCap); audRec = false; audBusy = false; audChunks = []; audLen = 0;
   try { window.speechSynthesis && speechSynthesis.cancel(); } catch(e){}
   clearInterval(timerId);
   $("micBtn").setAttribute("aria-pressed", "false"); setMicLabel();
@@ -970,7 +1105,12 @@ function stopSession(){
   saveHist();
   if (sess.items.length >= 3) makeReport(sess);
 }
-$("micBtn").addEventListener("click", () => { active ? (stopSession(), setStatus("")) : startSession(); });
+$("micBtn").addEventListener("click", () => {
+  if (!active) startSession();
+  else if (usingKind === "audio") audioToggle();
+  else { stopSession(); setStatus(""); }
+});
+$("endBtn").addEventListener("click", () => { stopSession(); setStatus(""); });
 
 /* ---------- progress view ---------- */
 function showView(name){
@@ -1278,7 +1418,7 @@ $("clearBtn").addEventListener("click", () => {
 applyLang();
 </script>
 <script>
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && location.hostname !== "localhost") {
   window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
 }
 </script>
