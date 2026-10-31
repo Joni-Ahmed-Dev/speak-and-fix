@@ -70,7 +70,7 @@ label.f input,label.f select{background:var(--bg);border:1px solid var(--line);b
 .msg.ai{align-self:flex-start;background:var(--ai);border-bottom-left-radius:4px}
 .msg .who{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 .msg.live{opacity:.75}
-.ctl{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+.ctl{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
   padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
 .mic{border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:11px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 .mic[aria-pressed="true"]{background:var(--bad);color:#fff}
@@ -144,7 +144,7 @@ ul.plain{list-style:none;padding:0;margin:0}
 
   <div id="viewPractice" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
     <div class="goal" id="goalBar"></div>
-    <details class="settings" id="settings" open>
+    <details class="settings" id="settings">
       <summary id="t-settings">Settings</summary>
       <div class="grid">
         <label class="f" for="apiKey"><span id="t-key">Gemini API key</span>
@@ -226,6 +226,7 @@ ul.plain{list-style:none;padding:0;margin:0}
         <div class="ctl">
           <button class="mic" id="micBtn" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Start talking</span></button>
           <button class="btn" id="endBtn" type="button" hidden data-bn="সেশন শেষ" data-en="End session">End session</button>
+          <button class="btn danger" id="stopRecBtn" type="button" hidden data-bn="⏹ থামুন" data-en="⏹ Stop">⏹ Stop</button>
           <span class="status" id="status"></span>
         </div>
       </section>
@@ -997,6 +998,11 @@ function audSend(){
   audChunks = []; audLen = 0;
   audioTurn(wavB64(all));
 }
+function audStop(){
+  audRec = false; clearTimeout(audCap); audChunks = []; audLen = 0;
+  $("micBtn").setAttribute("aria-pressed","false"); setMicLabel();
+  setStatus(tx("আপনার পালা। “বলুন” চাপুন।", "Your turn. Tap Speak."));
+}
 function audioToggle(){ if (audBusy) return; audRec ? audSend() : audBegin(); }
 function speakAudio(text){
   const done = () => { if (active && usingKind === "audio" && !audRec && !audBusy) setStatus(tx("আপনার পালা। “বলুন” চাপুন।", "Your turn. Tap Speak.")); };
@@ -1068,6 +1074,7 @@ function switchToAudio(){
 function setMicLabel(){
   const aud = active && usingKind === "audio";
   $("endBtn").hidden = !aud;
+  $("stopRecBtn").hidden = !(aud && audRec);
   $("micLabel").textContent = aud ? (audRec ? tx("পাঠান", "Send") : audBusy ? tx("অপেক্ষা করুন…", "Please wait…") : tx("বলুন", "Speak")) : (active ? t("stop") : t("start"));
 }
 function tick(){
@@ -1111,6 +1118,7 @@ $("micBtn").addEventListener("click", () => {
   else { stopSession(); setStatus(""); }
 });
 $("endBtn").addEventListener("click", () => { stopSession(); setStatus(""); });
+$("stopRecBtn").addEventListener("click", audStop);
 
 /* ---------- progress view ---------- */
 function showView(name){
