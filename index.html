@@ -1330,6 +1330,8 @@ function gradeCard(key, good){
 }
 function renderReview(){
   const body = $("subBody"); const due = dueCards(); const all = Object.values(rv.cards);
+  const seenS = new Set();
+  const dueUniq = due.filter(k => { const c = rv.cards[k]; const s = String((c && (c.ctx || c.wrong)) || "").toLowerCase(); if (!s || seenS.has(s)) return false; seenS.add(s); return true; });
   if (!all.length) { body.innerHTML = '<p class="empty" style="margin:20px auto">' + esc(tx("রিভিউয়ের জন্য এখনও কোনো ভুল জমেনি।", "No mistakes to review yet.")) + '</p>'; return; }
   if (!rq.active || rq.i >= rq.list.length) {
     const done = rq.active && rq.i >= rq.list.length;
@@ -1340,8 +1342,8 @@ function renderReview(){
       '<div class="band"><b>' + all.length + '</b><span>' + esc(tx("মোট কার্ড", "Total cards")) + '</span></div>' +
       '<div class="band"><b>' + mastered + '</b><span>' + esc(tx("মনে থাকছে", "Remembered well")) + '</span></div></div>' +
       '<p class="hint" style="margin:0">' + esc(tx("আপনার নিজের ভুলগুলো কার্ড হয়ে জমে। ঠিক উত্তর মনে থাকলে কার্ডটা ১, ৩, ৭, ১৪, ৩০ দিন পরে ফিরে আসে। ভুলে গেলে পরদিন আবার আসে।", "Your own mistakes become cards. If you remember the answer, the card returns after 1, 3, 7, 14 and 30 days. If you forget, it returns the next day.")) + '</p>' +
-      '<div class="row"><button class="btn tab" id="rvStart" type="button" aria-pressed="true"' + (due.length ? '' : ' disabled') + '>' + esc(due.length ? tx("রিভিউ শুরু (" + Math.min(20, due.length) + "টি)", "Start review (" + Math.min(20, due.length) + ")") : tx("এখন কিছু বাকি নেই", "Nothing due")) + '</button></div></section>';
-    const st = $("rvStart"); if (st) st.addEventListener("click", () => { rq = {active:true, list:due.slice(0, 20), i:0, shown:false, retried:{}}; renderReview(); });
+      '<div class="row"><button class="btn tab" id="rvStart" type="button" aria-pressed="true"' + (dueUniq.length ? '' : ' disabled') + '>' + esc(dueUniq.length ? tx("রিভিউ শুরু (" + Math.min(20, dueUniq.length) + "টি)", "Start review (" + Math.min(20, dueUniq.length) + ")") : tx("এখন কিছু বাকি নেই", "Nothing due")) + '</button></div></section>';
+    const st = $("rvStart"); if (st) st.addEventListener("click", () => { rq = {active:true, list:dueUniq.slice(0, 20), i:0, shown:false, retried:{}}; renderReview(); });
     return;
   }
   const key = rq.list[rq.i]; const c = rv.cards[key];
