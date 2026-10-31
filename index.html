@@ -516,10 +516,10 @@ function grammarPrompt(){
     "'mistakes' lists each wrong fragment exactly as written in the input (copy the words exactly) with its fix, a category from the allowed list, and 'why_bn': a very short Bengali reason for that one fix. " +
     "'explanation_bn' is a short explanation in Bengali, at most two sentences, naming the rule in simple words (keep English grammar terms in English). Empty string if correct. " +
     "'suggestions' always has two entries, even when the sentence is correct: how a fluent speaker would say the same idea. " +
-    "The first has style 'Natural' (relaxed, native-sounding) and the second has style 'Band 7' (more advanced, with a complex structure or less common vocabulary, still natural in speech). Keep the meaning the same and each suggestion to one or two sentences. " +
-    "'vocab' lists up to two basic words or phrases from the sentence with a stronger band 7 alternative, or an empty list. " +
+    "The first has style 'Natural' (relaxed, native-sounding) and the second has style 'Band 7' (still easy and natural to say out loud, like what a fluent speaker would comfortably say in real conversation, never a hard textbook sentence: at most one small upgrade, such as one natural linking word or one common but better word choice, no forced complex structures or rare vocabulary). Keep the meaning the same and each suggestion to one or two sentences. " +
+    "'vocab' lists up to two basic words or phrases from the sentence with a natural everyday stronger alternative that is easy to use in speech, or an empty list. " +
     "'word_errors' lists words or phrases the learner used wrongly or in the wrong context (wrong word, wrong collocation, wrong meaning, a confusable word). Each has 'word' as said, 'correct_use' (the right word or phrase for this context) and 'issue_bn' (a short Bengali reason). Do not repeat what is already in 'mistakes'. Empty list if none. " +
-    "'band7_bn' is one short Bengali tip on how this sentence could sound closer to band 7 (for example a complex sentence, a linking phrase or a less common word), or an empty string if it is already at that level or too short to matter. " +
+    "'band7_bn' is one short encouraging Bengali tip with one small easy change that would make this sentence sound closer to band 7 (for example one natural linking phrase or one everyday better word), or an empty string if it is already at that level or too short to matter. " +
     "If the learner spoke Bengali instead of English, set correct to false, put the English translation in 'corrected', category 'other', and explain in Bengali.";
 }
 function highlight(text, mistakes){
@@ -601,7 +601,7 @@ function reportPrompt(){
   return "You are an experienced IELTS Speaking examiner coaching a Bengali-speaking candidate who is aiming for band 7.0. " +
     "You get the candidate's spoken sentences (automatic transcript) with the corrections already found. " +
     "Estimate three criteria on the IELTS 0-9 scale in half-band steps: fluency and coherence, lexical resource, grammatical range and accuracy. " +
-    "Be realistic and strict, and use the public band descriptors. Band 7 means: speaks at length without noticeable effort, uses a range of linking devices, " +
+    "Be realistic but encouraging, and use the public band descriptors. Band 7 means: speaks at length without noticeable effort, uses a range of linking devices, " +
     "uses less common vocabulary with some awareness of style, uses a range of complex structures with good flexibility, and makes frequent error-free sentences with only occasional slips. " +
     "You only have text, so you cannot hear pauses or pronunciation: infer fluency from sentence length, linking and variety, and do not score pronunciation. " +
     "If there are fewer than six sentences, say in 'reliability_bn' that the estimate is rough. " +
@@ -609,7 +609,7 @@ function reportPrompt(){
     "'gap_to_7_bn': in two or three sentences, what separates this candidate from band 7. " +
     "'weaknesses': the two to four biggest weak areas with concrete detail and an example from the transcript. " +
     "'actions_bn': exactly three specific practice actions for the next session. " +
-    "'upgrades': up to five basic words or phrases the candidate used with a better band 7 alternative.";
+    "'upgrades': up to five basic words or phrases the candidate used with a natural everyday better alternative that is easy to say in speech.";
 }
 function sessionTranscript(sess){
   return sess.items.filter(i => i.r).map((i, n) => {
