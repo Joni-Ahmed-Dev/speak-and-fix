@@ -398,30 +398,45 @@ function endTurn(){
 }
 
 /* ---------- Gemini text calls (grammar, report, plan) ---------- */
-async function callGemini(system, user, schema, temp){
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(cfg.mGram) + ":generateContent";
+const FALLBACK_TEXT_MODEL = "gemini-3.5-flash-lite";
+let apiQueue = Promise.resolve();
+function callGemini(system, user, schema, temp){
+  const run = () => callGeminiNow(system, user, schema, temp);
+  const p = apiQueue.then(run, run);
+  apiQueue = p.catch(() => {});
+  return p;
+}
+async function callGeminiNow(system, user, schema, temp){
   const body = {
     systemInstruction:{parts:[{text:system}]},
     contents:[{role:"user", parts:[{text:user}]}],
     generationConfig:{temperature: temp == null ? 0.2 : temp}
   };
   if (schema) { body.generationConfig.responseMimeType = "application/json"; body.generationConfig.responseSchema = schema; }
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey}, body:JSON.stringify(body)});
-    if (!res.ok && res.status !== 429 && res.status !== 503) {
+  const models = [cfg.mGram];
+  if (cfg.mGram !== FALLBACK_TEXT_MODEL) models.push(FALLBACK_TEXT_MODEL);
+  let lastErr = "";
+  for (const model of models) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
+    const waits = [0, 2500, 6000];
+    for (let attempt = 0; attempt < waits.length; attempt++) {
+      if (waits[attempt]) await sleep(waits[attempt]);
+      let res;
+      try { res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":cfg.apiKey}, body:JSON.stringify(body)}); }
+      catch (e) { lastErr = "network error"; continue; }
+      if (res.ok) {
+        const data = await res.json();
+        const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+        if (!parts) { lastErr = "empty reply"; break; }
+        return parts.map(p => p.text || "").join("");
+      }
       let detail = "";
       try { const j = await res.json(); detail = j.error && j.error.message ? ": " + String(j.error.message).slice(0, 140) : ""; } catch(e){}
-      throw new Error("HTTP " + res.status + detail);
+      lastErr = "HTTP " + res.status + detail;
+      if (res.status !== 429 && res.status !== 503) break;
     }
-    if (res.ok) {
-      const data = await res.json();
-      const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-      if (!parts) throw new Error("empty reply");
-      return parts.map(p => p.text || "").join("");
-    }
-    if ((res.status === 429 || res.status === 503) && attempt === 0) { await sleep(1500); continue; }
-    throw new Error("HTTP " + res.status);
   }
+  throw new Error(lastErr || "failed");
 }
 
 /* ---------- grammar coach ---------- */
